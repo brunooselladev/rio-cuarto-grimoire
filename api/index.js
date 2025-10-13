@@ -4,7 +4,9 @@ import jwt from 'jsonwebtoken';
 import serverless from 'serverless-http';
 import { connectDB } from './lib/db.js';
 import Location from './models/Location.js';
-import { seedLocationsIfEmpty } from './lib/seed.js';
+import User from './models/User.js';
+import { seedLocationsIfEmpty, seedAdminIfMissing } from './lib/seed.js';
+import { verifyPassword } from './lib/auth.js';
 
 const app = express();
 app.use(cors());
@@ -32,23 +34,32 @@ function authRequired(req, res, next) {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
-  const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
+  try {
+    await connectDB();
+    await seedAdminIfMissing();
 
-  const token = jwt.sign(
-    { sub: username, role: 'admin' },
-    process.env.JWT_SECRET || 'dev-secret-change-me',
-    { expiresIn: '7d' },
-  );
-  res.json({ token });
+    const user = await User.findOne({ username: String(username).toLowerCase().trim() });
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const ok = verifyPassword(password, user.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const token = jwt.sign(
+      { sub: user.username, role: user.role || 'admin' },
+      process.env.JWT_SECRET || 'dev-secret-change-me',
+      { expiresIn: '7d' },
+    );
+    res.json({ token });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 // Ensure DB connection for subsequent routes
@@ -56,6 +67,7 @@ app.use(async (_req, _res, next) => {
   try {
     await connectDB();
     await seedLocationsIfEmpty();
+    await seedAdminIfMissing();
     next();
   } catch (err) {
     next(err);

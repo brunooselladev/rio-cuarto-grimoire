@@ -1,6 +1,9 @@
 import Location from '../models/Location.js';
+import User from '../models/User.js';
+import { hashPassword } from './auth.js';
 
 let seeded = false;
+let adminSeeded = false;
 
 const initialLocations = [
   {
@@ -64,4 +67,19 @@ export async function seedLocationsIfEmpty() {
     console.log(`[seed] Inserted ${initialLocations.length} locations`);
   }
   seeded = true;
+}
+
+export async function seedAdminIfMissing() {
+  if (adminSeeded) return;
+  const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || 'admin').toLowerCase().trim();
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+
+  const existing = await User.findOne({ username: ADMIN_USERNAME }).lean();
+  if (!existing) {
+    const passwordHash = hashPassword(ADMIN_PASSWORD);
+    await User.create({ username: ADMIN_USERNAME, passwordHash, role: 'admin' });
+    // eslint-disable-next-line no-console
+    console.log(`[seed] Created admin user \"${ADMIN_USERNAME}\"`);
+  }
+  adminSeeded = true;
 }
