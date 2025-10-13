@@ -137,6 +137,33 @@ const MapView = () => {
     }
   };
 
+  const renderMapChildren = () => (
+    <>
+      <TileLayer
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      />
+
+      {samplePOIs.filter(poi => poi.visible).map((poi) => (
+        <Marker
+          key={poi.id}
+          position={[poi.lat, poi.lng]}
+          icon={getMarkerIcon(poi.type)}
+          eventHandlers={{
+            click: () => setSelectedPOI(poi),
+          }}
+        >
+          <Popup>
+            <div className="font-mono text-sm">
+              <div className="font-bold text-primary">{poi.name}</div>
+              <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       {/* CRT Effect */}
@@ -202,30 +229,7 @@ const MapView = () => {
           className="h-full w-full"
           style={{ background: 'hsl(24 15% 8%)' }}
         >
-          <>
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            />
-            
-            {samplePOIs.filter(poi => poi.visible).map((poi) => (
-              <Marker
-                key={poi.id}
-                position={[poi.lat, poi.lng]}
-                icon={getMarkerIcon(poi.type)}
-                eventHandlers={{
-                  click: () => setSelectedPOI(poi),
-                }}
-              >
-                <Popup>
-                  <div className="font-mono text-sm">
-                    <div className="font-bold text-primary">{poi.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </>
+            {renderMapChildren as unknown as React.ReactNode}
         </MapContainer>
       </div>
 
