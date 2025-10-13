@@ -229,7 +229,7 @@ const MapView = () => {
           className="h-full w-full"
           style={{ background: 'hsl(24 15% 8%)' }}
         >
-            {renderMapChildren as unknown as React.ReactNode}
+          {renderMapChildren()}
         </MapContainer>
       </div>
 
