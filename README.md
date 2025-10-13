@@ -1,73 +1,100 @@
-# Welcome to your Lovable project
+# Río Cuarto Grimoire (JS + Express + MongoDB)
 
-## Project info
+Versión funcional fullstack del proyecto con persistencia real en MongoDB, autenticación básica por JWT y frontend React sin TypeScript.
 
-**URL**: https://lovable.dev/projects/d53e00fc-7425-4965-95e5-b8ea3fd0fa28
+## Estructura
 
-## How can I edit this code?
+- Frontend (Vite + React + Tailwind + shadcn-ui): en el root (`/`)
+- API (Express en funciones serverless de Vercel): `/api`
+  - `/api/index.js`: app Express envuelta con serverless-http
+  - `/api/lib/db.js`: conexión Mongoose (singleton)
+  - `/api/models/Location.js`: modelo `Location`
 
-There are several ways of editing your application.
+## Variables de entorno
 
-**Use Lovable**
+Configúralas en tu entorno local y en Vercel (Project Settings → Environment Variables):
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/d53e00fc-7425-4965-95e5-b8ea3fd0fa28) and start prompting.
+- `MONGO_URI` = cadena de conexión de MongoDB (Atlas o local)
+- `JWT_SECRET` = secreto para firmar JWT (cualquier string largo y aleatorio)
+- `ADMIN_USERNAME` = usuario admin (por defecto "admin" si no se define)
+- `ADMIN_PASSWORD` = contraseña admin (por defecto "admin" si no se define)
 
-Changes made via Lovable will be committed automatically to this repo.
+## Scripts
 
-**Use your preferred IDE**
+- `npm run dev` → levanta Vite para el frontend
+- `vercel dev` → recomendado para correr frontend + funciones `/api` localmente
+- `npm run build` → build de frontend (directorío `dist/`)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Correr localmente
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+1) Instalar deps
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+npm install
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2) Iniciar entorno de desarrollo solo-frontend (sin API):
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```sh
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+3) Iniciar fullstack con funciones serverless (requiere Vercel CLI):
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+# instalar si no lo tienes
+npm i -g vercel
+# arranca frontend + /api con variables de entorno cargadas
+vercel dev
+```
 
-**Use GitHub Codespaces**
+La app quedará disponible en http://localhost:3000 (o el puerto indicado) y la API bajo http://localhost:3000/api/*.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Endpoints de la API
 
-## What technologies are used for this project?
+- `POST /api/auth/login` → { username, password } → { token }
+- `GET /api/locations` → lista todas las ubicaciones
+- `POST /api/locations` (auth) → crea una ubicación
+- `PUT /api/locations/:id` (auth) → actualiza una ubicación
+- `DELETE /api/locations/:id` (auth) → elimina una ubicación
 
-This project is built with:
+Modelo `Location`:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```json
+{
+  "name": "String",
+  "description": "String",
+  "lat": 0,
+  "lng": 0,
+  "type": "power|mission|refuge|danger",
+  "visible": true,
+  "sphere": "String",
+  "narration": "String"
+}
+```
 
-## How can I deploy this project?
+## Autenticación (Narrador)
 
-Simply open [Lovable](https://lovable.dev/projects/d53e00fc-7425-4965-95e5-b8ea3fd0fa28) and click on Share -> Publish.
+En el panel de control (/control) hay un formulario de login. Al iniciar sesión se guarda `authToken` en `localStorage` y se habilitan las acciones de crear/editar/eliminar. Las rutas mutadoras de la API exigen header `Authorization: Bearer <token>`.
 
-## Can I connect a custom domain to my Lovable project?
+## Deploy en Vercel
 
-Yes, you can!
+1) Conecta el repo a Vercel
+2) Define variables en Project Settings → Environment Variables:
+   - `MONGO_URI`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`
+3) Deploy (automático en push a la rama o manual)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+La configuración `vercel.json` enruta todo `/api/(.*)` a `/api/index.js` (Express serverless). El frontend se construye con `npm run build` y se sirve como estático.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Notas de migración
+
+- Se removió por completo TypeScript. Todos los archivos son `.js`/`.jsx` y los configs de Vite/Tailwind están en JS.
+- Se simplificaron los tipos en componentes shadcn-ui para funcionar en JS.
+- El contexto `POIContext` ahora consume la API real en vez de datos hardcodeados.
+
+## Desarrollo futuro (ideas)
+
+- Edición inline de ubicaciones (PUT) desde el panel
+- Paginación o límites en `GET /api/locations`
+- Clustering en el mapa si hay muchos pines
+- Caché/fallback si la API falla
