@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Layers, Info } from "lucide-react";
+import { ChevronLeft, Info } from "lucide-react";
 import { Link } from "react-router-dom";
 import POIModal from "@/components/POIModal";
+import { usePOI, POI } from "@/contexts/POIContext";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -52,78 +53,8 @@ const missionIcon = createCustomIcon('hsl(180 100% 50%)'); // Cyan
 const refugeIcon = createCustomIcon('hsl(270 60% 50%)'); // Violet
 const dangerIcon = createCustomIcon('hsl(0 80% 50%)'); // Red
 
-interface POI {
-  id: number;
-  name: string;
-  type: 'power' | 'mission' | 'refuge' | 'danger';
-  lat: number;
-  lng: number;
-  description: string;
-  sphere?: string;
-  visible: boolean;
-  narration?: string;
-}
-
-// Sample POIs in Río Cuarto
-const samplePOIs: POI[] = [
-  {
-    id: 1,
-    name: "La Terminal Vieja",
-    type: "power",
-    lat: -33.1301,
-    lng: -64.3499,
-    description: "Antigua terminal de ómnibus, abandonada. Las paredes vibran con ecos de despedidas nunca dichas.",
-    sphere: "Entropía/Tiempo",
-    visible: true,
-    narration: "Los relojes se detienen aquí. El pasado sangra en el presente."
-  },
-  {
-    id: 2,
-    name: "Café del Boulevard",
-    type: "refuge",
-    lat: -33.1234,
-    lng: -64.3478,
-    description: "Refugio de la Curandera. Veladores rojos, cartas del tarot, y secretos murmurados entre el humo.",
-    sphere: "Vida/Espíritu",
-    visible: true,
-    narration: "Un lugar fuera del tiempo. Aquí, la paradoja no puede tocarte... por ahora."
-  },
-  {
-    id: 3,
-    name: "Universidad Nacional RC",
-    type: "mission",
-    lat: -33.1189,
-    lng: -64.3142,
-    description: "Laboratorios del tecnócrata. Entre computadoras viejas y cables, la magia se codifica en binario.",
-    sphere: "Fuerzas/Materia",
-    visible: true,
-    narration: "Los tecnócratas vigilan. Cada experimento es un ritual, cada ecuación es un hechizo."
-  },
-  {
-    id: 4,
-    name: "El Puente Carretero",
-    type: "danger",
-    lat: -33.1156,
-    lng: -64.3523,
-    description: "Cruce sobre el río. Aquí, entre dos mundos, la paradoja se manifiesta con violencia.",
-    sphere: "Primordio/Correspondencia",
-    visible: true,
-    narration: "No cruces solo de noche. Las sombras tienen hambre, y la realidad se desgarra."
-  },
-  {
-    id: 5,
-    name: "Grafiti del Niño Punky",
-    type: "mission",
-    lat: -33.1278,
-    lng: -64.3556,
-    description: "Un mural en la pared: símbolos caóticos que cambian cada noche. Arte vivo, magia callejera.",
-    sphere: "Caos/Primordio",
-    visible: true,
-    narration: "Los tags hablan. Si sabes leer entre las líneas, revelan verdades que la razón rechaza."
-  }
-];
-
 const MapView = () => {
+  const { pois } = usePOI();
   const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
   const [showInfo, setShowInfo] = useState(true);
 
@@ -144,7 +75,7 @@ const MapView = () => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       />
 
-      {samplePOIs.filter(poi => poi.visible).map((poi) => (
+      {pois.filter(poi => poi.visible).map((poi) => (
         <Marker
           key={poi.id}
           position={[poi.lat, poi.lng]}
@@ -244,7 +175,7 @@ const MapView = () => {
       {/* Status Bar */}
       <div className="absolute bottom-4 left-4 font-mono text-xs text-primary/70 border border-primary/20 bg-background/90 p-2 backdrop-blur z-[500]">
         <div>CONEXIÓN: ESTABLE</div>
-        <div>UBICACIONES: {samplePOIs.filter(p => p.visible).length}</div>
+        <div>UBICACIONES: {pois.filter(p => p.visible).length}</div>
         <div className="animate-pulse-glow">█</div>
       </div>
     </div>

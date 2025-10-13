@@ -7,47 +7,11 @@ import { Label } from "@/components/ui/label";
 import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-interface POI {
-  id: number;
-  name: string;
-  type: 'power' | 'mission' | 'refuge' | 'danger';
-  description: string;
-  sphere?: string;
-  visible: boolean;
-  narration?: string;
-}
-
-const samplePOIs: POI[] = [
-  {
-    id: 1,
-    name: "La Terminal Vieja",
-    type: "power",
-    description: "Antigua terminal de ómnibus, abandonada.",
-    sphere: "Entropía/Tiempo",
-    visible: true,
-    narration: "Los relojes se detienen aquí."
-  },
-  {
-    id: 2,
-    name: "Café del Boulevard",
-    type: "refuge",
-    description: "Refugio de la Curandera.",
-    sphere: "Vida/Espíritu",
-    visible: true,
-    narration: "Un lugar fuera del tiempo."
-  },
-];
+import { usePOI, POI } from "@/contexts/POIContext";
 
 const ControlPanel = () => {
-  const [pois, setPOIs] = useState<POI[]>(samplePOIs);
+  const { pois, toggleVisibility } = usePOI();
   const [showNewPOI, setShowNewPOI] = useState(false);
-
-  const toggleVisibility = (id: number) => {
-    setPOIs(pois.map(poi => 
-      poi.id === id ? { ...poi, visible: !poi.visible } : poi
-    ));
-  };
 
   const getTypeColor = (type: POI['type']) => {
     switch(type) {
