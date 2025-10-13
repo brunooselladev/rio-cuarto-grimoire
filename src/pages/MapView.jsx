@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, Info } from "lucide-react";
-import { Link } from "react-router-dom";
-import POIModal from "@/components/POIModal";
-import { usePOI, POI } from "@/contexts/POIContext";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { Button } from '@/components/ui/button.jsx';
+import { ChevronLeft, Info } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import POIModal from '@/components/POIModal.jsx';
+import { usePOI } from '@/contexts/POIContext.jsx';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 // Fix for default markers in react-leaflet
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 const DefaultIcon = L.icon({
   iconUrl: icon,
@@ -22,7 +22,7 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Custom marker icons for different POI types
-const createCustomIcon = (color: string) => {
+const createCustomIcon = (color) => {
   return L.divIcon({
     className: 'custom-marker',
     html: `<div style="
@@ -54,17 +54,22 @@ const refugeIcon = createCustomIcon('hsl(270 60% 50%)'); // Violet
 const dangerIcon = createCustomIcon('hsl(0 80% 50%)'); // Red
 
 const MapView = () => {
-  const { pois } = usePOI();
-  const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
+  const { pois, loading } = usePOI();
+  const [selectedPOI, setSelectedPOI] = useState(null);
   const [showInfo, setShowInfo] = useState(true);
 
-  const getMarkerIcon = (type: POI['type']) => {
-    switch(type) {
-      case 'power': return powerIcon;
-      case 'mission': return missionIcon;
-      case 'refuge': return refugeIcon;
-      case 'danger': return dangerIcon;
-      default: return DefaultIcon;
+  const getMarkerIcon = (type) => {
+    switch (type) {
+      case 'power':
+        return powerIcon;
+      case 'mission':
+        return missionIcon;
+      case 'refuge':
+        return refugeIcon;
+      case 'danger':
+        return dangerIcon;
+      default:
+        return DefaultIcon;
     }
   };
 
@@ -75,23 +80,18 @@ const MapView = () => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       />
 
-      {pois.filter(poi => poi.visible).map((poi) => (
-        <Marker
-          key={poi.id}
-          position={[poi.lat, poi.lng]}
-          icon={getMarkerIcon(poi.type)}
-          eventHandlers={{
-            click: () => setSelectedPOI(poi),
-          }}
-        >
-          <Popup>
-            <div className="font-mono text-sm">
-              <div className="font-bold text-primary">{poi.name}</div>
-              <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+      {pois
+        .filter((poi) => poi.visible)
+        .map((poi) => (
+          <Marker key={poi.id || poi._id} position={[poi.lat, poi.lng]} icon={getMarkerIcon(poi.type)} eventHandlers={{ click: () => setSelectedPOI(poi) }}>
+            <Popup>
+              <div className="font-mono text-sm">
+                <div className="font-bold text-primary">{poi.name}</div>
+                <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
     </>
   );
 
@@ -99,7 +99,7 @@ const MapView = () => {
     <div className="h-screen w-screen relative overflow-hidden">
       {/* CRT Effect */}
       <div className="fixed inset-0 scan-line pointer-events-none z-[1000]" />
-      
+
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-[500] bg-background/90 backdrop-blur border-b border-primary/30">
         <div className="flex items-center justify-between p-4">
@@ -109,15 +109,8 @@ const MapView = () => {
               VOLVER
             </Button>
           </Link>
-          <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono">
-            MAPA NARRATIVO • RÍO CUARTO 1994
-          </h1>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setShowInfo(!showInfo)}
-            className="border-accent/50 text-accent font-mono"
-          >
+          <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono">MAPA NARRATIVO • RÍO CUARTO 1994</h1>
+          <Button variant="outline" size="sm" onClick={() => setShowInfo(!showInfo)} className="border-accent/50 text-accent font-mono">
             <Info className="mr-1" size={16} />
             INFO
           </Button>
@@ -146,36 +139,24 @@ const MapView = () => {
               <span>Zona Peligrosa</span>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
-            Haz click en los marcadores para más información
-          </div>
+          <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground">Haz click en los marcadores para más información</div>
         </div>
       )}
 
       {/* Map */}
       <div className="h-full w-full">
-        <MapContainer
-          center={[-33.1234, -64.3499]}
-          zoom={13}
-          className="h-full w-full"
-          style={{ background: 'hsl(24 15% 8%)' }}
-        >
-          {renderMapChildren()}
+        <MapContainer center={[-33.1234, -64.3499]} zoom={13} className="h-full w-full" style={{ background: 'hsl(24 15% 8%)' }}>
+          {loading ? null : renderMapChildren()}
         </MapContainer>
       </div>
 
       {/* POI Detail Modal */}
-      {selectedPOI && (
-        <POIModal 
-          poi={selectedPOI} 
-          onClose={() => setSelectedPOI(null)} 
-        />
-      )}
+      {selectedPOI && <POIModal poi={selectedPOI} onClose={() => setSelectedPOI(null)} />}
 
       {/* Status Bar */}
       <div className="absolute bottom-4 left-4 font-mono text-xs text-primary/70 border border-primary/20 bg-background/90 p-2 backdrop-blur z-[500]">
-        <div>CONEXIÓN: ESTABLE</div>
-        <div>UBICACIONES: {pois.filter(p => p.visible).length}</div>
+        <div>CONEXIÓN: {loading ? 'CARGANDO' : 'ESTABLE'}</div>
+        <div>UBICACIONES: {pois.filter((p) => p.visible).length}</div>
         <div className="animate-pulse-glow">█</div>
       </div>
     </div>
