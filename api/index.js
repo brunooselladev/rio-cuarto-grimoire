@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import serverless from 'serverless-http';
 import { connectDB } from './lib/db.js';
 import Location from './models/Location.js';
+import { seedLocationsIfEmpty } from './lib/seed.js';
 
 const app = express();
 app.use(cors());
@@ -54,6 +55,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.use(async (_req, _res, next) => {
   try {
     await connectDB();
+    await seedLocationsIfEmpty();
     next();
   } catch (err) {
     next(err);

@@ -12,6 +12,18 @@ Versión funcional fullstack del proyecto con persistencia real en MongoDB, aute
 
 ## Variables de entorno
 
+Puedes copiar el archivo `.env.example` a `.env` o `.env.local` y completar la contraseña de tu usuario de MongoDB.
+
+Ejemplo:
+
+```bash
+MONGO_URI=mongodb+srv://brunooselladev_db_user:<db_password>@maps.0t4gzh0.mongodb.net/?retryWrites=true&w=majority&appName=Maps
+MONGO_DB_NAME=rio-cuarto-grimoire
+JWT_SECRET=replace_me_with_a_long_random_string
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin
+```
+
 Configúralas en tu entorno local y en Vercel (Project Settings → Environment Variables):
 
 - `MONGO_URI` = cadena de conexión de MongoDB (Atlas o local)
