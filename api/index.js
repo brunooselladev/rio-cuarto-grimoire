@@ -6,7 +6,6 @@ import { connectDB } from './lib/db.js';
 import Location from './models/Location.js';
 import User from './models/User.js';
 import { seedLocationsIfEmpty, seedAdminIfMissing } from './lib/seed.js';
-import { verifyPassword } from './lib/auth.js';
 
 const app = express();
 app.use(cors());
@@ -46,8 +45,9 @@ app.post('/api/auth/login', async (req, res) => {
     const user = await User.findOne({ username: String(username).toLowerCase().trim() });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const ok = verifyPassword(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    if (user.password !== password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const token = jwt.sign(
       { sub: user.username, role: user.role || 'admin' },

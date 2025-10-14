@@ -1,6 +1,5 @@
 import Location from '../models/Location.js';
 import User from '../models/User.js';
-import { hashPassword } from './auth.js';
 
 let seeded = false;
 let adminSeeded = false;
@@ -76,8 +75,7 @@ export async function seedAdminIfMissing() {
 
   const existing = await User.findOne({ username: ADMIN_USERNAME }).lean();
   if (!existing) {
-    const passwordHash = hashPassword(ADMIN_PASSWORD);
-    await User.create({ username: ADMIN_USERNAME, passwordHash, role: 'admin' });
+    await User.create({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD, role: 'admin' });
     // eslint-disable-next-line no-console
     console.log(`[seed] Created admin user \"${ADMIN_USERNAME}\"`);
   }
