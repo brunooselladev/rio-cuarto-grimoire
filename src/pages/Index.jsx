@@ -36,9 +36,9 @@ const Index = () => {
           {/* Description */}
           <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto leading-relaxed font-mono text-muted-foreground">
             Un mapa narrativo donde la <span className="text-primary glow-text-green">tecnología</span> y la{' '}
-            <span className="text-secondary glow-text-violet">magia</span> convergen en las calles olvidadas.
+            <span className="text-secondary glow-text-violet">magia</span> convergen en las calles olvidadas de una ciudad a la que bien podríamos nombrar como la arruga del ano del mundo.
             <br />
-            <span className="text-accent">La realidad es maleable. La paradoja acecha.</span>
+            <span className="text-accent">La realidad es maleable. La paradoja una perra.</span>
           </p>
 
           {/* CTA Buttons */}
