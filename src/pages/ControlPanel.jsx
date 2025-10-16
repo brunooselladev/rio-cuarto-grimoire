@@ -59,14 +59,28 @@ const ControlPanel = () => {
     });
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
-    const imageUrls = files.map(file => URL.createObjectURL(file));
-    setForm({ ...form, images: [...form.images, ...imageUrls] });
-    toast({ 
-      title: 'Imágenes cargadas', 
+    const base64Promises = files.map(file => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file); // 📸 convierte a base64
+      });
+    });
+
+    const base64Images = await Promise.all(base64Promises);
+
+    setForm(prev => ({
+      ...prev,
+      images: [...prev.images, ...base64Images],
+    }));
+
+    toast({
+      title: 'Imágenes cargadas',
       description: `${files.length} imagen(es) agregada(s)`,
-      duration: 2000 
+      duration: 2000
     });
   };
 

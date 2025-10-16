@@ -44,9 +44,9 @@ const getStreetViewUrl = (lat, lng) => {
 };
 
   // Si no hay imágenes cargadas, usar Street View
-  const images = poi.images && poi.images.length > 0 
-    ? poi.images 
-    : [getStreetViewUrl(poi.lat, poi.lng)];
+  const streetViewUrl = getStreetViewUrl(poi.lat, poi.lng);
+  const images = [streetViewUrl, ...(poi.images || [])];
+
 
   return (
     <>
