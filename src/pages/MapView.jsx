@@ -8,9 +8,9 @@ import { usePOI } from '@/contexts/POIContext.jsx';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { jwtDecode } from 'jwt-decode';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // Fix for default markers in react-leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -73,85 +73,86 @@ const MapView = () => {
   const [selectedPOI, setSelectedPOI] = useState(null);
   const [showInfo, setShowInfo] = useState(true);
   const [user, setUser] = useState(null);
-    const [showOnlyMyCreations, setShowOnlyMyCreations] = useState(false);
-  
-    useEffect(() => {
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        try {
-          const decoded = jwtDecode(token);
-          setUser(decoded);
-        } catch (error) {
-          console.error("Failed to decode token:", error);
-        }
+  const [filterMode, setFilterMode] = useState('all'); // 'all' or 'mine'
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUser(decoded);
+      } catch (error) {
+        console.error("Failed to decode token:", error);
       }
-    }, []);
-  
-    const poisToRender = pois.reduce((acc, poi) => {
-      const isOwner = poi.createdBy && user && poi.createdBy._id === user.id;
-  
-      const getIcon = () => {
-        if (user?.role === 'player' && isOwner && !poi.visible) {
-          return suggestionIcon;
-        }
-        switch (poi.type) {
-          case 'power': return powerIcon;
-          case 'mission': return missionIcon;
-          case 'refuge': return refugeIcon;
-          case 'danger': return dangerIcon;
-          default: return DefaultIcon;
-        }
-      };
-  
-      if (user) {
-        if (user.role === 'admin') {
-          acc.push({ ...poi, icon: getIcon() });
-        } else { // Player logic
-          if (showOnlyMyCreations) {
-            if (isOwner) {
-              acc.push({ ...poi, icon: getIcon() });
-            }
-          } else {
-            if (poi.visible || isOwner) {
-              acc.push({ ...poi, icon: getIcon() });
-            }
+    }
+  }, []);
+
+  const poisToRender = pois.reduce((acc, poi) => {
+    const isOwner = poi.createdBy && user && poi.createdBy._id === user.id;
+
+    const getIcon = () => {
+      if (user?.role === 'player' && isOwner && !poi.visible) {
+        return suggestionIcon;
+      }
+      switch (poi.type) {
+        case 'power': return powerIcon;
+        case 'mission': return missionIcon;
+        case 'refuge': return refugeIcon;
+        case 'danger': return dangerIcon;
+        default: return DefaultIcon;
+      }
+    };
+
+    if (user) {
+      if (user.role === 'admin') {
+        acc.push({ ...poi, icon: getIcon() });
+      } else { // Player logic
+        if (filterMode === 'mine') {
+          if (isOwner) {
+            acc.push({ ...poi, icon: getIcon() });
+          }
+        } else { // 'all'
+          if (poi.visible || isOwner) {
+            acc.push({ ...poi, icon: getIcon() });
           }
         }
-      } else { // Not logged in
-        if (poi.visible) {
-          acc.push({ ...poi, icon: getIcon() });
-        }
       }
-  
-      return acc;
-    }, []);
+    } else { // Not logged in
+      if (poi.visible) {
+        acc.push({ ...poi, icon: getIcon() });
+      }
+    }
 
-    const renderMapChildren = () => (
-      <>
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        />
-  
-        {poisToRender.map((poi) => (
-            <Marker 
-              key={poi.id || poi._id} 
-              position={[poi.lat, poi.lng]} 
-              icon={poi.icon} 
-              eventHandlers={{ 
-                click: () => setSelectedPOI(poi)
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -20]} opacity={0.9} permanent={false}>
-                <div className="font-mono text-sm">
-                  <div className="font-bold text-primary">{poi.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
-                </div>
-              </Tooltip>
-            </Marker>
-          ))}
-      </>
-    );
+    return acc;
+  }, []);
+
+  const renderMapChildren = () => (
+    <>
+      <TileLayer
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      />
+
+      {poisToRender.map((poi) => (
+          <Marker 
+            key={poi.id || poi._id} 
+            position={[poi.lat, poi.lng]} 
+            icon={poi.icon} 
+            eventHandlers={{
+              click: () => setSelectedPOI(poi)
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -20]} opacity={0.9} permanent={false}>
+              <div className="font-mono text-sm">
+                <div className="font-bold text-primary">{poi.name}</div>
+                <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
+              </div>
+            </Tooltip>
+          </Marker>
+        ))}
+    </>
+  );
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
       {/* CRT Effect */}
@@ -214,31 +215,35 @@ const MapView = () => {
       {/* POI Detail Modal */}
       {selectedPOI && <POIModal poi={selectedPOI} onClose={() => setSelectedPOI(null)} />}
 
-      {/* Filter Sheet for Players */}
+      {/* Filter Popover for Players */}
       {user && user.role === 'player' && (
-        <Sheet>
-          <SheetTrigger asChild>
+        <Popover>
+          <PopoverTrigger asChild>
             <Button variant="outline" size="icon" className="absolute bottom-4 right-4 z-[500] border-primary/50 text-primary font-mono">
               <Filter size={20} />
             </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom">
-            <SheetHeader>
-              <SheetTitle className="font-mono text-primary">Filtros del Mapa</SheetTitle>
-              <SheetDescription className="font-mono text-muted-foreground">Ajusta qué puntos de interés se muestran en el mapa.</SheetDescription>
-            </SheetHeader>
-            <div className="py-4">
-              <div className="flex items-center justify-between rounded-lg border p-4">
-                <Label htmlFor="my-creations-filter" className="font-mono">Mostrar solo mis creaciones</Label>
-                <Switch 
-                  id="my-creations-filter" 
-                  checked={showOnlyMyCreations}
-                  onCheckedChange={setShowOnlyMyCreations}
-                />
+          </PopoverTrigger>
+          <PopoverContent className="w-72">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <h4 className="font-medium leading-none font-mono text-primary">Filtros del Mapa</h4>
+                <p className="text-sm text-muted-foreground font-mono">
+                  Ajusta qué puntos de interés se muestran.
+                </p>
               </div>
+              <RadioGroup value={filterMode} onValueChange={setFilterMode} className="grid gap-2">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="r1" />
+                  <Label htmlFor="r1" className="font-mono">Mostrar todo</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="mine" id="r2" />
+                  <Label htmlFor="r2" className="font-mono">Mostrar solo los míos</Label>
+                </div>
+              </RadioGroup>
             </div>
-          </SheetContent>
-        </Sheet>
+          </PopoverContent>
+        </Popover>
       )}
 
       {/* Status Bar */}
