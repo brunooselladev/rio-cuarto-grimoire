@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn } from 'lucide-react';
+import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn, MapPin } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
+import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 
 const ControlPanel = () => {
   const { pois, toggleVisibility, addPOI, deletePOI, loading, refresh } = usePOI();
@@ -19,6 +20,7 @@ const ControlPanel = () => {
     description: '',
     narration: '',
     sphere: '',
+    address: '',
     lat: '',
     lng: '',
   });
@@ -45,19 +47,48 @@ const ControlPanel = () => {
     }
   };
 
+  const handleLocationSelect = ({ address, lat, lng }) => {
+    setForm({ ...form, address, lat, lng });
+    toast({ 
+      title: 'Ubicación seleccionada', 
+      description: address,
+      duration: 2000 
+    });
+  };
+
   const handleSave = async () => {
     // Basic validations
-    if (!form.name.trim()) return toast({ title: 'Error', description: 'El nombre es obligatorio' });
+    if (!form.name.trim()) {
+      return toast({ title: 'Error', description: 'El nombre es obligatorio' });
+    }
+    
+    if (!form.address || !form.lat || !form.lng) {
+      return toast({ 
+        title: 'Error', 
+        description: 'Selecciona una ubicación válida antes de guardar' 
+      });
+    }
+
     const lat = Number(form.lat);
     const lng = Number(form.lng);
+    
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      return toast({ title: 'Error', description: 'Lat/Lng deben ser numéricos' });
+      return toast({ title: 'Error', description: 'Coordenadas inválidas' });
     }
 
     try {
       await addPOI({ ...form, lat, lng, visible: true });
       toast({ title: 'Ubicación guardada', description: form.name });
-      setForm({ name: '', type: 'power', description: '', narration: '', sphere: '', lat: '', lng: '' });
+      setForm({ 
+        name: '', 
+        type: 'power', 
+        description: '', 
+        narration: '', 
+        sphere: '', 
+        address: '',
+        lat: '', 
+        lng: '' 
+      });
       setShowNewPOI(false);
     } catch (e) {
       toast({ title: 'Error', description: 'No autorizado o fallo al guardar' });
@@ -180,6 +211,23 @@ const ControlPanel = () => {
                     </select>
                   </div>
                   <div>
+                    <Label className="font-mono text-xs">DIRECCIÓN</Label>
+                    <GooglePlacesInput
+                      value={form.address}
+                      onSelect={handleLocationSelect}
+                      placeholder="Buscar dirección en Río Cuarto..."
+                    />
+                    {form.address && (
+                      <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground font-mono p-2 bg-primary/5 rounded border border-primary/20">
+                        <MapPin size={14} className="mt-0.5 text-primary flex-shrink-0" />
+                        <div>
+                          <div className="text-primary font-semibold">{form.address}</div>
+                          <div className="mt-1">Lat: {form.lat} | Lng: {form.lng}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
                     <Label className="font-mono text-xs">DESCRIPCIÓN</Label>
                     <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción visible para todos..." className="font-mono" />
                   </div>
@@ -190,16 +238,6 @@ const ControlPanel = () => {
                   <div>
                     <Label className="font-mono text-xs">ESFERA MÁGICA</Label>
                     <Input value={form.sphere} onChange={(e) => setForm({ ...form, sphere: e.target.value })} placeholder="Ej: Correspondencia/Espíritu" className="font-mono" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="font-mono text-xs">LAT</Label>
-                      <Input value={form.lat} onChange={(e) => setForm({ ...form, lat: e.target.value })} placeholder="-33.12" className="font-mono" />
-                    </div>
-                    <div>
-                      <Label className="font-mono text-xs">LNG</Label>
-                      <Input value={form.lng} onChange={(e) => setForm({ ...form, lng: e.target.value })} placeholder="-64.35" className="font-mono" />
-                    </div>
                   </div>
                   <div className="flex gap-3">
                     <Button className="flex-1 bg-primary text-primary-foreground font-mono" onClick={handleSave} disabled={!token}>
@@ -227,6 +265,12 @@ const ControlPanel = () => {
                           {poi.visible ? <Eye className="text-primary" size={16} /> : <EyeOff className="text-muted-foreground" size={16} />}
                         </div>
                         <h3 className="font-bold text-lg mb-1">{poi.name}</h3>
+                        {poi.address && (
+                          <div className="flex items-start gap-2 text-xs text-muted-foreground mb-2 font-mono">
+                            <MapPin size={12} className="mt-0.5 flex-shrink-0" />
+                            <span>{poi.address}</span>
+                          </div>
+                        )}
                         <p className="text-sm text-muted-foreground mb-2">{poi.description}</p>
                         {poi.sphere && (
                           <div className="flex items-center gap-2 text-xs text-accent font-mono">

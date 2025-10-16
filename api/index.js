@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
@@ -6,6 +9,9 @@ import { connectDB } from './lib/db.js';
 import Location from './models/Location.js';
 import User from './models/User.js';
 import { seedLocationsIfEmpty, seedAdminIfMissing } from './lib/seed.js';
+import { verifyPassword } from './lib/password.js';
+
+
 
 const app = express();
 app.use(cors());
@@ -45,7 +51,8 @@ app.post('/api/auth/login', async (req, res) => {
     const user = await User.findOne({ username: String(username).toLowerCase().trim() });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    if (user.password !== password) {
+    const isValid = verifyPassword(password, user.password);
+    if (!isValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -84,9 +91,10 @@ app.get('/api/locations', async (_req, res, next) => {
   }
 });
 
+
 app.post('/api/locations', authRequired, async (req, res, next) => {
   try {
-    const { name, description, lat, lng, type, visible, sphere, narration } = req.body || {};
+    const { name, description, lat, lng, type, visible, sphere, narration, address } = req.body || {};
 
     if (!name || typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ error: 'name, lat and lng are required' });
@@ -101,6 +109,7 @@ app.post('/api/locations', authRequired, async (req, res, next) => {
       visible: typeof visible === 'boolean' ? visible : true,
       sphere: sphere || '',
       narration: narration || '',
+      address: address || '',
     });
     res.status(201).json(loc);
   } catch (err) {
@@ -133,10 +142,37 @@ app.delete('/api/locations/:id', authRequired, async (req, res, next) => {
   }
 });
 
+app.post('/api/create-admin', async (req, res) => {
+  try {
+    const { username, password, role } = req.body
+
+    const existing = await User.findOne({ username })
+    if (existing) return res.status(400).json({ message: 'El usuario ya existe' })
+
+    const newUser = new User({ username, password, role })
+    await newUser.save()
+
+    res.status(201).json({ message: 'Usuario creado con éxito', user: newUser })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Error al crear el usuario', error: err.message })
+  }
+})
+
+
 // Error handler
 app.use((err, _req, res, _next) => {
   console.error('API error:', err);
   res.status(500).json({ error: 'Internal Server Error' });
 });
+
+// Export para serverless Y arranque local
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    console.log(`✅ API corriendo en http://localhost:${PORT}`);
+  });
+}
+
 
 export default serverless(app);

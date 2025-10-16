@@ -1,117 +1,161 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
-const POIContext = createContext(undefined);
+const POIContext = createContext();
 
-const getAuthHeaders = () => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+export const usePOI = () => {
+  const context = useContext(POIContext);
+  if (!context) {
+    throw new Error('usePOI must be used within POIProvider');
+  }
+  return context;
 };
 
 export const POIProvider = ({ children }) => {
-  const [pois, setPOIs] = useState([]);
+  const [pois, setPois] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  const mapDoc = (doc) => ({
-    id: doc._id,
-    _id: doc._id,
-    name: doc.name,
-    type: doc.type || 'power',
-    lat: doc.lat,
-    lng: doc.lng,
-    description: doc.description || '',
-    sphere: doc.sphere || '',
-    visible: typeof doc.visible === 'boolean' ? doc.visible : true,
-    narration: doc.narration || '',
-  });
+  // Obtener token de autenticación
+// Obtener token de autenticación
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token || ''}`
+    };
+  };
 
-  const load = async () => {
+  // Cargar POIs desde la API
+  const fetchPOIs = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/locations');
-      if (!res.ok) throw new Error('Error al cargar ubicaciones');
-      const data = await res.json();
-      setPOIs(data.map(mapDoc));
-      setError(null);
-    } catch (err) {
-      setError(err.message || 'Error');
+      const response = await fetch('/api/locations', {
+        headers: getAuthHeaders()
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar ubicaciones');
+      }
+      
+      const data = await response.json();
+      
+      // Normalizar los datos para que tengan un 'id' consistente
+      const normalizedData = data.map(poi => ({
+        ...poi,
+        id: poi._id || poi.id
+      }));
+      
+      setPois(normalizedData);
+    } catch (error) {
+      console.error('Error fetching POIs:', error);
+      setPois([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Agregar nuevo POI
+  const addPOI = async (poiData) => {
+    try {
+      const response = await fetch('/api/locations', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(poiData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al crear ubicación');
+      }
+
+      const newPOI = await response.json();
+      
+      // Agregar el nuevo POI al estado
+      setPois(prev => [{
+        ...newPOI,
+        id: newPOI._id || newPOI.id
+      }, ...prev]);
+      
+      return newPOI;
+    } catch (error) {
+      console.error('Error adding POI:', error);
+      throw error;
+    }
+  };
+
+  // Actualizar POI (toggle visibility)
+  const toggleVisibility = async (id) => {
+    try {
+      // Encontrar el POI actual
+      const poi = pois.find(p => p.id === id || p._id === id);
+      if (!poi) throw new Error('POI no encontrado');
+
+      const response = await fetch(`/api/locations/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ visible: !poi.visible })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar visibilidad');
+      }
+
+      const updatedPOI = await response.json();
+      
+      // Actualizar el estado local
+      setPois(prev => prev.map(p => 
+        (p.id === id || p._id === id) 
+          ? { ...updatedPOI, id: updatedPOI._id || updatedPOI.id }
+          : p
+      ));
+      
+      return updatedPOI;
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      throw error;
+    }
+  };
+
+  // Eliminar POI
+  const deletePOI = async (id) => {
+    try {
+      const response = await fetch(`/api/locations/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar ubicación');
+      }
+
+      // Remover del estado local
+      setPois(prev => prev.filter(p => p.id !== id && p._id !== id));
+    } catch (error) {
+      console.error('Error deleting POI:', error);
+      throw error;
+    }
+  };
+
+  // Refrescar POIs (útil después de login)
+  const refresh = async () => {
+    await fetchPOIs();
+  };
+
+  // Cargar POIs al montar el componente
   useEffect(() => {
-    load();
+    fetchPOIs();
   }, []);
 
-  const addPOI = async (poi) => {
-    const body = {
-      name: poi.name,
-      description: poi.description || '',
-      lat: Number(poi.lat),
-      lng: Number(poi.lng),
-      type: poi.type || 'power',
-      visible: typeof poi.visible === 'boolean' ? poi.visible : true,
-      sphere: poi.sphere || '',
-      narration: poi.narration || '',
-    };
-    const res = await fetch('/api/locations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error('No autorizado o datos inválidos');
-    const created = await res.json();
-    setPOIs((prev) => [mapDoc(created), ...prev]);
-    return created;
-  };
-
-  const toggleVisibility = async (id) => {
-    const current = pois.find((p) => p.id === id || p._id === id);
-    if (!current) return;
-    const res = await fetch(`/api/locations/${current._id || current.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ visible: !current.visible }),
-    });
-    if (!res.ok) throw new Error('No autorizado');
-    const updated = await res.json();
-    setPOIs((prev) => prev.map((p) => (p._id === updated._id || p.id === updated._id ? mapDoc(updated) : p)));
-  };
-
-  const updatePOI = async (id, updates) => {
-    const res = await fetch(`/api/locations/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('No autorizado');
-    const updated = await res.json();
-    setPOIs((prev) => prev.map((p) => (p._id === updated._id || p.id === updated._id ? mapDoc(updated) : p)));
-  };
-
-  const deletePOI = async (id) => {
-    const target = pois.find((p) => p.id === id || p._id === id);
-    if (!target) return;
-    const res = await fetch(`/api/locations/${target._id || target.id}`, {
-      method: 'DELETE',
-      headers: { ...getAuthHeaders() },
-    });
-    if (!res.ok) throw new Error('No autorizado');
-    setPOIs((prev) => prev.filter((p) => (p._id || p.id) !== (target._id || target.id)));
+  const value = {
+    pois,
+    loading,
+    addPOI,
+    toggleVisibility,
+    deletePOI,
+    refresh
   };
 
   return (
-    <POIContext.Provider value={{ pois, loading, error, addPOI, toggleVisibility, updatePOI, deletePOI, refresh: load }}>
+    <POIContext.Provider value={value}>
       {children}
     </POIContext.Provider>
   );
-};
-
-export const usePOI = () => {
-  const context = useContext(POIContext);
-  if (context === undefined) {
-    throw new Error('usePOI must be used within a POIProvider');
-  }
-  return context;
 };
