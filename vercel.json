@@ -13,7 +13,11 @@
     }
   ],
   "env": {
-    "MONGODB_URI": "@mongodb_uri",
-    "JWT_SECRET": "@jwt_secret"
+    "MONGO_URI": "@mongodb_uri",
+    "JWT_SECRET": "@jwt_secret",
+    "MONGO_DB_NAME": "rio-cuarto-grimoire",
+    "ADMIN_USERNAME": "@admin_username",
+    "ADMIN_PASSWORD": "@admin_password",
+    "VITE_API_GOOGLE": "@google_api_key"
   }
 }
