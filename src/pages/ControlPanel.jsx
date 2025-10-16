@@ -124,7 +124,7 @@ const ControlPanel = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={"min-h-screen bg-background"}>
       {/* CRT Effect */}
       <div className="fixed inset-0 scan-line pointer-events-none z-50" />
 
@@ -152,7 +152,7 @@ const ControlPanel = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {!token && (
-          <Card className="mb-6 border-destructive/40">
+          <Card className="mb-6 border-destructive/40 relative z-40">
             <CardHeader>
               <CardTitle className="text-destructive font-mono">Acceso Narrador</CardTitle>
               <CardDescription>Inicia sesión para crear, editar y eliminar ubicaciones</CardDescription>
@@ -175,8 +175,17 @@ const ControlPanel = () => {
           </Card>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - POI List */}
+        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 relative ${!token ? 'pointer-events-none' : ''}`}>
+          {/* Overlay when not authenticated */}
+          {!token && (
+            <div className="absolute inset-0 bg-background/60 backdrop-blur-md z-40 rounded-lg flex items-center justify-center">
+              <div className="text-center font-mono text-muted-foreground">
+                <LogIn className="mx-auto mb-2 opacity-50" size={32} />
+                <p className="text-sm">Inicia sesión para acceder al panel</p>
+              </div>
+            </div>
+          )}
+            {/* Left Column - POI List */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center justify-between mb-6">
               <div>
