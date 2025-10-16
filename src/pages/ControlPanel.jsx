@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn, MapPin } from 'lucide-react';
+import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn, MapPin, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
@@ -23,6 +23,7 @@ const ControlPanel = () => {
     address: '',
     lat: '',
     lng: '',
+    images: [],
   });
   const [auth, setAuth] = useState({ username: '', password: '' });
   const [token, setToken] = useState(null);
@@ -56,6 +57,22 @@ const ControlPanel = () => {
     });
   };
 
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const imageUrls = files.map(file => URL.createObjectURL(file));
+    setForm({ ...form, images: [...form.images, ...imageUrls] });
+    toast({ 
+      title: 'Imágenes cargadas', 
+      description: `${files.length} imagen(es) agregada(s)`,
+      duration: 2000 
+    });
+  };
+
+  const removeImage = (index) => {
+    const newImages = form.images.filter((_, i) => i !== index);
+    setForm({ ...form, images: newImages });
+  };
+
   const handleSave = async () => {
     // Basic validations
     if (!form.name.trim()) {
@@ -87,7 +104,8 @@ const ControlPanel = () => {
         sphere: '', 
         address: '',
         lat: '', 
-        lng: '' 
+        lng: '',
+        images: []
       });
       setShowNewPOI(false);
     } catch (e) {
@@ -248,6 +266,53 @@ const ControlPanel = () => {
                     <Label className="font-mono text-xs">ESFERA MÁGICA</Label>
                     <Input value={form.sphere} onChange={(e) => setForm({ ...form, sphere: e.target.value })} placeholder="Ej: Correspondencia/Espíritu" className="font-mono" />
                   </div>
+                  <div>
+                    <Label className="font-mono text-xs">IMÁGENES (OPCIONAL)</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          id="image-upload"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <div className="flex items-center gap-2 px-4 py-2 border border-primary/50 rounded-md hover:bg-primary/10 transition-colors font-mono text-sm">
+                            <Upload size={16} />
+                            CARGAR IMÁGENES
+                          </div>
+                        </label>
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {form.images.length} imagen(es)
+                        </span>
+                      </div>
+                      {form.images.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2">
+                          {form.images.map((img, idx) => (
+                            <div key={idx} className="relative group">
+                              <img 
+                                src={img} 
+                                alt={`Preview ${idx + 1}`} 
+                                className="w-full h-20 object-cover rounded border border-primary/30"
+                              />
+                              <button
+                                onClick={() => removeImage(idx)}
+                                className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground italic font-mono p-2 bg-accent/5 rounded border border-accent/20">
+                        <ImageIcon size={12} className="inline mr-1" />
+                        Si no cargas imágenes, se usará automáticamente Google Street View
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex gap-3">
                     <Button className="flex-1 bg-primary text-primary-foreground font-mono" onClick={handleSave} disabled={!token}>
                       <Save className="mr-2" size={16} /> GUARDAR
@@ -272,6 +337,12 @@ const ControlPanel = () => {
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className={`${getTypeColor(poi.type)} font-mono text-xs`}>{String(poi.type).toUpperCase()}</Badge>
                           {poi.visible ? <Eye className="text-primary" size={16} /> : <EyeOff className="text-muted-foreground" size={16} />}
+                          {poi.images && poi.images.length > 0 && (
+                            <Badge variant="outline" className="font-mono text-xs border-accent/50 text-accent">
+                              <ImageIcon size={10} className="mr-1" />
+                              {poi.images.length}
+                            </Badge>
+                          )}
                         </div>
                         <h3 className="font-bold text-lg mb-1">{poi.name}</h3>
                         {poi.address && (
@@ -345,12 +416,18 @@ const ControlPanel = () => {
 
             <Card className="border-accent/30 bg-gradient-to-br from-accent/5 to-transparent">
               <CardHeader>
-                <CardTitle className="text-accent font-mono">PRÓXIMAMENTE</CardTitle>
+                <CardTitle className="text-accent font-mono">NUEVA FUNCIÓN</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm font-mono text-muted-foreground">
-                <div>• Carga de imágenes</div>
-                <div>• Timeline narrativo</div>
-                <div>• Modo ritual/eventos</div>
+              <CardContent className="space-y-2 text-sm font-mono">
+                <div className="flex items-center gap-2 text-primary">
+                  <ImageIcon size={16} />
+                  <span className="font-bold">Galería de imágenes</span>
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  • Carga múltiples imágenes por POI<br/>
+                  • Street View automático<br/>
+                  • Vista ampliada con lightbox
+                </div>
               </CardContent>
             </Card>
           </div>

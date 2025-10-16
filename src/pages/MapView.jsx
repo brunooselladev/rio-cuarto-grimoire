@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip } from 'react-leaflet';
 import { Button } from '@/components/ui/button.jsx';
 import { ChevronLeft, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -80,16 +80,23 @@ const MapView = () => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       />
 
-      {pois
+{pois
         .filter((poi) => poi.visible)
         .map((poi) => (
-          <Marker key={poi.id || poi._id} position={[poi.lat, poi.lng]} icon={getMarkerIcon(poi.type)} eventHandlers={{ click: () => setSelectedPOI(poi) }}>
-            <Popup>
+          <Marker 
+            key={poi.id || poi._id} 
+            position={[poi.lat, poi.lng]} 
+            icon={getMarkerIcon(poi.type)} 
+            eventHandlers={{ 
+              click: () => setSelectedPOI(poi)
+            }}
+          >
+            <Tooltip direction="top" offset={[0, -20]} opacity={0.9} permanent={false}>
               <div className="font-mono text-sm">
                 <div className="font-bold text-primary">{poi.name}</div>
                 <div className="text-xs text-muted-foreground mt-1">{poi.description}</div>
               </div>
-            </Popup>
+            </Tooltip>
           </Marker>
         ))}
     </>
