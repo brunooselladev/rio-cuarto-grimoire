@@ -9,8 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "start:api": "node api/index.js",
-    "vercel-build": "vite build"
+    "start:api": "node api/index.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
