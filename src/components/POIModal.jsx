@@ -40,7 +40,7 @@ const POIModal = ({ poi, onClose }) => {
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-card border-2 border-primary max-w-2xl w-full max-h-[80vh] overflow-y-auto animate-fade-in border-glow-green">
+      <div className="relative bg-card border-2 border-primary max-w-2xl w-full max-h-[80vh] overflow-hidden animate-fade-in border-glow-green">
         {/* Glitch effect on border */}
         <div className="absolute inset-0 border-2 border-accent/30 animate-glitch pointer-events-none" />
 

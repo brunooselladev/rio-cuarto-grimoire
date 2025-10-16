@@ -339,12 +339,9 @@ const ControlPanel = () => {
                 <CardTitle className="text-accent font-mono">PRÓXIMAMENTE</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm font-mono text-muted-foreground">
-                <div>• Autenticación de usuarios</div>
-                <div>• Base de datos persistente</div>
                 <div>• Carga de imágenes</div>
                 <div>• Timeline narrativo</div>
                 <div>• Modo ritual/eventos</div>
-                <div className="pt-2 text-xs text-accent">Conecta Lovable Cloud para activar estas funciones</div>
               </CardContent>
             </Card>
           </div>

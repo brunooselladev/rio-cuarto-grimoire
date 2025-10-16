@@ -63,7 +63,7 @@ app.post('/api/auth/login', async (req, res) => {
     );
     res.json({ token });
   } catch (err) {
-    // eslint-disable-next-line no-console
+  
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
