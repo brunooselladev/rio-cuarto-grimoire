@@ -22,13 +22,5 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "MONGO_URI": "MONGO_URI",
-    "JWT_SECRET": "JWT_SECRET",
-    "MONGO_DB_NAME": "MONGO_DB_NAME",
-    "ADMIN_USERNAME": "ADMIN_USERNAME",
-    "ADMIN_PASSWORD": "ADMIN_PASSWORD",
-    "VITE_API_GOOGLE": "VITE_API_GOOGLE"
-  }
+  ]
 }
