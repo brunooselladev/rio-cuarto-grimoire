@@ -13,7 +13,7 @@
     }
   ],
   "env": {
-    "MONGO_URI": "@mongodb_uri",
+    "MONGO_URI": "@mongo_uri",
     "JWT_SECRET": "@jwt_secret",
     "MONGO_DB_NAME": "rio-cuarto-grimoire",
     "ADMIN_USERNAME": "@admin_username",
