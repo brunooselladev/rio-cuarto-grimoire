@@ -225,6 +225,7 @@ const MapView = () => {
           <SheetContent side="bottom">
             <SheetHeader>
               <SheetTitle className="font-mono text-primary">Filtros del Mapa</SheetTitle>
+              <SheetDescription className="font-mono text-muted-foreground">Ajusta qué puntos de interés se muestran en el mapa.</SheetDescription>
             </SheetHeader>
             <div className="py-4">
               <div className="flex items-center justify-between rounded-lg border p-4">
