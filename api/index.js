@@ -57,7 +57,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { sub: user.username, role: user.role || 'admin' },
+      { id: user._id, sub: user.username, role: user.role || 'admin' },
       process.env.JWT_SECRET || 'dev-secret-change-me',
       { expiresIn: '7d' },
     );
@@ -84,7 +84,7 @@ app.use(async (_req, _res, next) => {
 // Locations CRUD
 app.get('/api/locations', async (_req, res, next) => {
   try {
-    const locations = await Location.find().sort({ createdAt: -1 }).lean();
+    const locations = await Location.find().populate('createdBy', 'username role').sort({ createdAt: -1 }).lean();
     res.json(locations);
   } catch (err) {
     next(err);
@@ -94,11 +94,13 @@ app.get('/api/locations', async (_req, res, next) => {
 
 app.post('/api/locations', authRequired, async (req, res, next) => {
   try {
-    const { name, description, lat, lng, type, visible, sphere, narration, address } = req.body || {};
+    const { name, description, lat, lng, type, visible, sphere, narration, address, images } = req.body || {};
 
     if (!name || typeof lat !== 'number' || typeof lng !== 'number') {
       return res.status(400).json({ error: 'name, lat and lng are required' });
     }
+
+    const user = await User.findOne({ username: req.user.sub });
 
     const loc = await Location.create({
       name,
@@ -110,6 +112,8 @@ app.post('/api/locations', authRequired, async (req, res, next) => {
       sphere: sphere || '',
       narration: narration || '',
       address: address || '',
+      images: images || [],
+      createdBy: user ? user._id : null,
     });
     res.status(201).json(loc);
   } catch (err) {

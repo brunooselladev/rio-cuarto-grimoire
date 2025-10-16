@@ -14,8 +14,6 @@ export const POIProvider = ({ children }) => {
   const [pois, setPois] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Obtener token de autenticación
-// Obtener token de autenticación
   const getAuthHeaders = () => {
     const token = localStorage.getItem('authToken');
     return {
@@ -67,13 +65,6 @@ export const POIProvider = ({ children }) => {
       }
 
       const newPOI = await response.json();
-      
-      // Agregar el nuevo POI al estado
-      setPois(prev => [{
-        ...newPOI,
-        id: newPOI._id || newPOI.id
-      }, ...prev]);
-      
       return newPOI;
     } catch (error) {
       console.error('Error adding POI:', error);

@@ -11,7 +11,7 @@ import { usePOI } from '@/contexts/POIContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 
-const ControlPanelAdmin = () => {
+const ControlPanelAdmin = ({ user }) => {
   const { pois, toggleVisibility, addPOI, deletePOI, loading, refresh } = usePOI();
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
@@ -188,7 +188,7 @@ const ControlPanelAdmin = () => {
                 VOLVER
               </Button>
             </Link>
-            <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono">PANEL DE CONTROL • NARRADOR</h1>
+            <h1 className="text-lg text-center md:text-2xl font-bold glow-text-green font-mono">PANEL DE CONTROL NARRADOR</h1>
             <Link to="/map">
               <Button variant="outline" size="sm" className="border-accent/50 text-accent font-mono">
                 <Map className="mr-1" size={16} />
@@ -371,6 +371,7 @@ const ControlPanelAdmin = () => {
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className={`${getTypeColor(poi.type)} font-mono text-xs`}>{String(poi.type).toUpperCase()}</Badge>
                           {poi.visible ? <Eye className="text-primary" size={16} /> : <EyeOff className="text-muted-foreground" size={16} />}
+                          {poi.createdBy && <Badge variant="outline" className="font-mono text-xs">Por: {poi.createdBy.username}</Badge>}
                           {poi.images && poi.images.length > 0 && (
                             <Badge variant="outline" className="font-mono text-xs border-accent/50 text-accent">
                               <ImageIcon size={10} className="mr-1" />

@@ -20,7 +20,7 @@ const Index = () => {
         {/* Content */}
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-center animate-fade-in">
           {/* Glitch Title */}
-          <div className="mb-6">
+          <div className="mt-6 mb-6">
             <h1 className="text-6xl md:text-8xl font-bold mb-4 glow-text-green animate-flicker">RÍO CUARTO</h1>
             <h2 className="text-4xl md:text-6xl font-bold mb-2 glow-text-violet">1994</h2>
             <div className="text-xl md:text-2xl font-mono text-accent animate-pulse-glow">∴ MAGO: LA ASCENSIÓN ∴</div>

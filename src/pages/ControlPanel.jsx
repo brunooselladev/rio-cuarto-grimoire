@@ -79,7 +79,7 @@ const ControlPanelRouter = () => {
 
   const handleLogin = (newToken) => {
     setToken(newToken);
-    refresh(); // refresca los POIs despues del login
+    refresh();
   };
 
   if (!user) {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Sparkles, Map, Save, Trash2, MapPin, Upload, X, Image as ImageIcon, User } from 'lucide-react';
+import { ChevronLeft, Plus, Sparkles, Map, Save, MapPin, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
@@ -12,10 +12,9 @@ import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 
 const ControlPanelPlayer = ({ user }) => {
-  const { pois, addPOI, deletePOI, loading, refresh } = usePOI();
+  const { pois, addPOI, loading, refresh } = usePOI();
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
-
   const [form, setForm] = useState({
     name: '',
     type: 'power',
@@ -28,30 +27,22 @@ const ControlPanelPlayer = ({ user }) => {
   const { toast } = useToast();
   const token = localStorage.getItem('authToken');
 
-  const userPOIs = pois.filter(poi => poi.visible || poi.createdBy === user.id);
+  // Correctly filter POIs for the player view
+  const userPOIs = pois.filter(poi => poi.visible || (poi.createdBy && poi.createdBy._id === user.id));
 
   const getTypeColor = (type) => {
     switch (type) {
-      case 'power':
-        return 'bg-primary text-primary-foreground';
-      case 'mission':
-        return 'bg-accent text-accent-foreground';
-      case 'refuge':
-        return 'bg-secondary text-secondary-foreground';
-      case 'danger':
-        return 'bg-destructive text-destructive-foreground';
-      default:
-        return 'bg-muted text-muted-foreground';
+      case 'power': return 'bg-primary text-primary-foreground';
+      case 'mission': return 'bg-accent text-accent-foreground';
+      case 'refuge': return 'bg-secondary text-secondary-foreground';
+      case 'danger': return 'bg-destructive text-destructive-foreground';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
   const handleLocationSelect = ({ address, lat, lng }) => {
     setForm({ ...form, address, lat, lng });
-    toast({ 
-      title: 'Ubicación seleccionada', 
-      description: address,
-      duration: 2000 
-    });
+    toast({ title: 'Ubicación seleccionada', description: address, duration: 2000 });
   };
 
   const handleImageUpload = async (e) => {
@@ -64,14 +55,9 @@ const ControlPanelPlayer = ({ user }) => {
         reader.readAsDataURL(file);
       });
     });
-
     const base64Images = await Promise.all(base64Promises);
     setForm(prev => ({ ...prev, images: [...prev.images, ...base64Images] }));
-    toast({
-      title: 'Imágenes cargadas',
-      description: `${files.length} imagen(es) agregada(s)`,
-      duration: 2000
-    });
+    toast({ title: 'Imágenes cargadas', description: `${files.length} imagen(es) agregada(s)`, duration: 2000 });
   };
 
   const removeImage = (index) => {
@@ -89,14 +75,14 @@ const ControlPanelPlayer = ({ user }) => {
 
     try {
       if (editingPOI) {
-        await fetch(`/api/locations/${editingPOI.id}`, {
+        await fetch(`/api/locations/${editingPOI.id || editingPOI._id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ ...form, lat, lng }),
         });
         toast({ title: 'Ubicación actualizada', description: form.name });
       } else {
-        await addPOI({ ...form, lat, lng, visible: false }); // Players create POIs as not visible by default
+        await addPOI({ ...form, lat, lng, visible: false });
         toast({ title: 'Ubicación sugerida', description: 'Tu ubicación ha sido enviada para revisión del Narrador.' });
       }
 
@@ -109,21 +95,9 @@ const ControlPanelPlayer = ({ user }) => {
     }
   };
 
-  const handleDelete = async (poi) => {
-    if (poi.createdBy !== user.id) {
-      return toast({ title: 'Acción no permitida', description: 'No puedes eliminar una ubicación que no creaste.' });
-    }
-    if (!confirm(`Eliminar "${poi.name}"?`)) return;
-    try {
-      await deletePOI(poi.id);
-      toast({ title: 'Eliminado', description: poi.name });
-    } catch (e) {
-      toast({ title: 'Error', description: 'No autorizado o fallo al eliminar' });
-    }
-  };
-
   const handleEdit = (poi) => {
-    if (poi.createdBy !== user.id) {
+    const isOwner = poi.createdBy && poi.createdBy._id === user.id;
+    if (!isOwner) {
       return toast({ title: 'Acción no permitida', description: 'No puedes editar una ubicación que no creaste.' });
     }
     setEditingPOI(poi);
@@ -151,7 +125,7 @@ const ControlPanelPlayer = ({ user }) => {
                 VOLVER
               </Button>
             </Link>
-            <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono truncate">PANEL DE JUGADOR • {user && user.username ? user.username.toUpperCase() : 'JUGADOR'}</h1>
+            <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono truncate">PANEL DE JUGADOR • {user && user.sub ? user.sub.toUpperCase() : 'JUGADOR'}</h1>
             <Link to="/map">
               <Button variant="outline" size="sm" className="border-accent/50 text-accent font-mono">
                 <Map className="mr-1" size={16} />
@@ -263,15 +237,19 @@ const ControlPanelPlayer = ({ user }) => {
             {loading && <div className="text-sm text-muted-foreground font-mono">Cargando ubicaciones...</div>}
             {!loading && userPOIs.length === 0 && <div className="text-sm text-muted-foreground font-mono">No hay ubicaciones visibles o creadas por ti.</div>}
             {userPOIs.map((poi) => {
-              const isOwner = poi.createdBy === user.id;
+              const isOwner = poi.createdBy && poi.createdBy._id === user.id;
               return (
-                <Card key={poi.id} className={`border-2 transition-all ${isOwner ? 'border-green-500/50' : 'border-primary/30'}`}>
+                <Card key={poi.id || poi._id} className={`border-2 transition-all ${isOwner ? 'border-green-500/50' : 'border-primary/30'}`}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className={`${getTypeColor(poi.type)} font-mono text-xs`}>{String(poi.type).toUpperCase()}</Badge>
-                          {isOwner && <Badge variant="outline" className="font-mono text-xs border-green-500/80 text-green-500">Creado por mí</Badge>}
+                          {poi.createdBy && (
+                            <Badge variant="outline" className={`font-mono text-xs ${isOwner ? 'border-green-500/80 text-green-500' : 'border-muted-foreground/50'}`}>
+                              {isOwner ? 'Creado por mí' : `Por: ${poi.createdBy.username}`}
+                            </Badge>
+                          )}
                           {poi.images && poi.images.length > 0 && (
                             <Badge variant="outline" className="font-mono text-xs border-accent/50 text-accent">
                               <ImageIcon size={10} className="mr-1" />
@@ -296,9 +274,6 @@ const ControlPanelPlayer = ({ user }) => {
                       </div>
                       {isOwner && (
                         <div className="flex flex-col gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(poi)} className="font-mono">
-                            <Trash2 size={14} />
-                          </Button>
                           <Button size="sm" variant="outline" onClick={() => handleEdit(poi)} className="font-mono">
                             ✏️
                           </Button>
