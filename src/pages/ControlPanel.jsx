@@ -14,6 +14,8 @@ import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 const ControlPanel = () => {
   const { pois, toggleVisibility, addPOI, deletePOI, loading, refresh } = usePOI();
   const [showNewPOI, setShowNewPOI] = useState(false);
+  const [editingPOI, setEditingPOI] = useState(null);
+
   const [form, setForm] = useState({
     name: '',
     type: 'power',
@@ -74,44 +76,43 @@ const ControlPanel = () => {
   };
 
   const handleSave = async () => {
-    // Basic validations
-    if (!form.name.trim()) {
-      return toast({ title: 'Error', description: 'El nombre es obligatorio' });
-    }
-    
-    if (!form.address || !form.lat || !form.lng) {
-      return toast({ 
-        title: 'Error', 
-        description: 'Selecciona una ubicación válida antes de guardar' 
-      });
-    }
+    if (!form.name.trim()) return toast({ title: 'Error', description: 'El nombre es obligatorio' });
+    if (!form.address || !form.lat || !form.lng) return toast({ title: 'Error', description: 'Selecciona una ubicación válida antes de guardar' });
 
     const lat = Number(form.lat);
     const lng = Number(form.lng);
-    
-    if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      return toast({ title: 'Error', description: 'Coordenadas inválidas' });
-    }
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return toast({ title: 'Error', description: 'Coordenadas inválidas' });
 
     try {
-      await addPOI({ ...form, lat, lng, visible: true });
-      toast({ title: 'Ubicación guardada', description: form.name });
-      setForm({ 
-        name: '', 
-        type: 'power', 
-        description: '', 
-        narration: '', 
-        sphere: '', 
-        address: '',
-        lat: '', 
-        lng: '',
-        images: []
+      if (editingPOI) {
+        // 🔧 MODO EDICIÓN
+        await fetch(`/api/locations/${editingPOI._id || editingPOI.id}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ ...form, lat, lng }),
+        });
+        toast({ title: 'Ubicación actualizada', description: form.name });
+      } else {
+        // ✨ NUEVA
+        await addPOI({ ...form, lat, lng, visible: true });
+        toast({ title: 'Ubicación guardada', description: form.name });
+      }
+
+      setForm({
+        name: '', type: 'power', description: '', narration: '', sphere: '',
+        address: '', lat: '', lng: '', images: [],
       });
+      setEditingPOI(null);
       setShowNewPOI(false);
+      await refresh();
     } catch (e) {
       toast({ title: 'Error', description: 'No autorizado o fallo al guardar' });
     }
   };
+
 
   const handleDelete = async (poi) => {
     if (!confirm(`Eliminar "${poi.name}"?`)) return;
@@ -122,6 +123,23 @@ const ControlPanel = () => {
       toast({ title: 'Error', description: 'No autorizado o fallo al eliminar' });
     }
   };
+
+  const handleEdit = (poi) => {
+    setEditingPOI(poi);
+    setShowNewPOI(true);
+    setForm({
+      name: poi.name,
+      type: poi.type,
+      description: poi.description,
+      narration: poi.narration || '',
+      sphere: poi.sphere || '',
+      address: poi.address || '',
+      lat: poi.lat || '',
+      lng: poi.lng || '',
+      images: poi.images || [],
+    });
+  };
+
 
   const submitLogin = async () => {
     try {
@@ -220,7 +238,9 @@ const ControlPanel = () => {
             {showNewPOI && (
               <Card className="border-accent/50 border-glow-cyan animate-fade-in">
                 <CardHeader>
-                  <CardTitle className="text-accent font-mono">Crear Nueva Ubicación</CardTitle>
+                <CardTitle className="text-accent font-mono">
+                  {editingPOI ? 'Editar Ubicación' : 'Crear Nueva Ubicación'}
+                </CardTitle>
                   <CardDescription className="font-mono">Define un nuevo punto de interés para la campaña</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -367,6 +387,16 @@ const ControlPanel = () => {
                         <Button size="sm" variant="outline" onClick={() => handleDelete(poi)} className="font-mono" disabled={!token}>
                           <Trash2 size={14} />
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(poi)}
+                          className="font-mono"
+                          disabled={!token}
+                        >
+                          ✏️
+                        </Button>
+
                       </div>
                     </div>
                   </CardContent>

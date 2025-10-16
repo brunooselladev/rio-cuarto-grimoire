@@ -119,18 +119,34 @@ app.post('/api/locations', authRequired, async (req, res, next) => {
 
 app.put('/api/locations/:id', authRequired, async (req, res, next) => {
   try {
+    // Permitimos actualizar todos estos campos
+    const allowed = [
+      'name',
+      'description',
+      'lat',
+      'lng',
+      'type',
+      'visible',
+      'sphere',
+      'narration',
+      'address',
+      'images', // 👈 nuevo campo
+    ];
+
     const updates = {};
-    const allowed = ['name', 'description', 'lat', 'lng', 'type', 'visible', 'sphere', 'narration'];
     for (const key of allowed) {
       if (key in req.body) updates[key] = req.body[key];
     }
+
     const loc = await Location.findByIdAndUpdate(req.params.id, updates, { new: true });
+
     if (!loc) return res.status(404).json({ error: 'Not found' });
     res.json(loc);
   } catch (err) {
     next(err);
   }
 });
+
 
 app.delete('/api/locations/:id', authRequired, async (req, res, next) => {
   try {

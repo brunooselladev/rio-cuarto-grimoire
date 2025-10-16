@@ -11,6 +11,18 @@ const locationSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    narration: {
+      type: String,
+      default: '',
+    },
+    sphere: {
+      type: String,
+      default: '',
+    },
+    address: {
+      type: String,
+      default: '',
+    },
     lat: {
       type: Number,
       required: true,
@@ -28,17 +40,9 @@ const locationSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    sphere: {
-      type: String,
-      default: '',
-    },
-    narration: {
-      type: String,
-      default: '',
-    },
-    address: {
-      type: String,
-      default: '',
+    images: {
+      type: [String],
+      default: [],
     },
   },
   {
