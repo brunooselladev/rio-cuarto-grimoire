@@ -166,7 +166,7 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// Export para serverless Y arranque local
+// Para desarrollo local
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3001;
   app.listen(PORT, () => {
@@ -174,5 +174,5 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-
-export default serverless(app);
+// Para Vercel - exportar la app directamente
+export default app;
