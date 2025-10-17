@@ -103,6 +103,10 @@ const PlayerCard = ({ sheet }) => {
     fetchNotes();
   }, [isOpen, sheet.user?._id, token, toast]);
 
+  useEffect(() => {
+    console.log('Character Sheet:', sheet);
+  }, [sheet.user]);
+
   const handleSaveNote = async () => {
     if (!newNote.trim()) return;
 

@@ -210,7 +210,7 @@ const MapView = () => {
       </div>
 
       {/* POI Detail Modal */}
-      {selectedPOI && <POIModal poi={selectedPOI} onClose={() => setSelectedPOI(null)} />}
+      {selectedPOI && <POIModal poi={selectedPOI} user={user} onClose={() => setSelectedPOI(null)} />}
 
       {/* Filter Popover for Players */}
       {user && user.role === 'player' && (

@@ -1,6 +1,8 @@
-import { X, Eye, Sparkles, Map, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Eye, Sparkles, Map, ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Textarea } from '@/components/ui/textarea.jsx';
+import { useToast } from '@/hooks/use-toast.js';
 
 const getTypeColor = (type) => {
   switch (type) {
@@ -32,10 +34,83 @@ const getTypeLabel = (type) => {
   }
 };
 
-const POIModal = ({ poi, onClose }) => {
+const POIModal = ({ poi, user, onClose }) => {
   const typeColorClass = getTypeColor(poi.type);
   const [showGallery, setShowGallery] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [events, setEvents] = useState(poi.events || []);
+  const [newEvent, setNewEvent] = useState('');
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [editingEventContent, setEditingEventContent] = useState('');
+  const { toast } = useToast();
+  const token = localStorage.getItem('authToken');
+
+  const handleAddEvent = async () => {
+    if (!newEvent.trim()) return;
+
+    try {
+      const response = await fetch(`/api/locations/${poi._id}/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: newEvent }),
+      });
+
+      if (!response.ok) throw new Error('Failed to add event');
+
+      const savedEvent = await response.json();
+      setEvents([...events, savedEvent]);
+      setNewEvent('');
+      setShowEventForm(false);
+      toast({ title: 'Evento marcado' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleUpdateEvent = async (eventId) => {
+    try {
+      const response = await fetch(`/api/locations/${poi._id}/events/${eventId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: editingEventContent }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update event');
+
+      const updatedEvent = await response.json();
+      setEvents(events.map(e => (e._id === eventId ? updatedEvent : e)));
+      setEditingEventId(null);
+      setEditingEventContent('');
+      toast({ title: 'Evento actualizado' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteEvent = async (eventId) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este evento?')) return;
+
+    try {
+      const response = await fetch(`/api/locations/${poi._id}/events/${eventId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Failed to delete event');
+
+      setEvents(events.filter(e => e._id !== eventId));
+      toast({ title: 'Evento eliminado' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
 
   // Google Street View URL como imagen por defecto
 const getStreetViewUrl = (lat, lng) => {
@@ -126,6 +201,75 @@ const getStreetViewUrl = (lat, lng) => {
               </div>
             </div>
 
+            {/* Events Section */}
+            <div className="space-y-4 border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-mono text-secondary glow-text-violet">
+                  <Sparkles size={16} />
+                  <span>EVENTOS</span>
+                </div>
+                {user?.role === 'admin' && (
+                  <Button size="sm" onClick={() => setShowEventForm(!showEventForm)}>
+                    {showEventForm ? 'Cancelar' : 'Marcar Evento'}
+                  </Button>
+                )}
+              </div>
+
+              {showEventForm && (
+                <div className="space-y-2">
+                  <Textarea
+                    value={newEvent}
+                    onChange={(e) => setNewEvent(e.target.value)}
+                    placeholder="Describe el evento..."
+                    className="font-mono"
+                  />
+                  <Button onClick={handleAddEvent}>Guardar Evento</Button>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {events.map(event => (
+                  <div key={event._id} className="text-sm p-2 bg-secondary/10 border-l-2 border-secondary rounded">
+                    {editingEventId === event._id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editingEventContent}
+                          onChange={(e) => setEditingEventContent(e.target.value)}
+                          className="font-mono"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleUpdateEvent(event._id)}>Guardar</Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingEventId(null)}>Cancelar</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="whitespace-pre-wrap">{event.content}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            - {event.createdBy?.username || 'Admin'} el {new Date(event.createdAt).toLocaleDateString()}
+                          </p>
+                          {user?.role === 'admin' && (
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingEventId(event._id); setEditingEventContent(event.content); }}>
+                                <Edit size={12} />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteEvent(event._id)}>
+                                <Trash2 size={12} />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {events.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">No hay eventos marcados en esta ubicación.</p>
+                )}
+              </div>
+            </div>
+
             {/* Actions */}
             <div className="flex flex-col md:flex-rowgap-3 pt-4 border-t border-border">
               <Button 
@@ -135,10 +279,6 @@ const getStreetViewUrl = (lat, lng) => {
                 <Eye className="mr-2" size={16} />
                 REVELAR PISTAS
                 {showGallery ? <ChevronUp className="ml-2" size={16} /> : <ChevronDown className="ml-2" size={16} />}
-              </Button>
-              <Button variant="outline" className="flex-1 border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground font-mono">
-                <Sparkles className="mr-2" size={16} />
-                MARCAR EVENTO
               </Button>
             </div>
 

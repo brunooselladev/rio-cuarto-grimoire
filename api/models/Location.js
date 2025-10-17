@@ -1,5 +1,17 @@
 import mongoose from 'mongoose';
 
+const eventSchema = new mongoose.Schema({
+  content: {
+    type: String,
+    required: true,
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+}, { timestamps: true });
+
 const locationSchema = new mongoose.Schema(
   {
     name: {
@@ -44,6 +56,7 @@ const locationSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    events: [eventSchema],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

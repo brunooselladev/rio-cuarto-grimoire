@@ -151,6 +151,80 @@ app.delete('/api/locations/:id', authRequired, async (req, res, next) => {
   }
 });
 
+// Add event to a location
+app.post('/api/locations/:id/events', authRequired, async (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const { content } = req.body;
+    const location = await Location.findById(req.params.id);
+    if (!location) return res.status(404).json({ error: 'Location not found' });
+
+    const newEvent = {
+      content,
+      createdBy: req.user.id,
+    };
+
+    location.events.push(newEvent);
+    await location.save();
+    res.status(201).json(location.events[location.events.length - 1]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Update an event
+app.put('/api/locations/:id/events/:eventId', authRequired, async (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const { content } = req.body;
+    const location = await Location.findById(req.params.id);
+    if (!location) return res.status(404).json({ error: 'Location not found' });
+
+    const event = location.events.id(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    // Check if the user is the creator of the event
+    if (event.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    event.content = content;
+    await location.save();
+    res.json(event);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete an event
+app.delete('/api/locations/:id/events/:eventId', authRequired, async (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const location = await Location.findById(req.params.id);
+    if (!location) return res.status(404).json({ error: 'Location not found' });
+
+    const event = location.events.id(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    // Check if the user is the creator of the event
+    if (event.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    event.remove();
+    await location.save();
+    res.json({ message: 'Event deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post('/api/create-admin', async (req, res) => {
   try {
     const { username, password, role } = req.body
