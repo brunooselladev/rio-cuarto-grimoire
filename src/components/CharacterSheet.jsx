@@ -12,8 +12,8 @@ import { generateCharacterSheetPdf } from '@/lib/pdfService.js';
 
 // Helper component for dot-based ratings
 const DotRating = ({ label, value, max = 5, onChange }) => (
-  <div className="flex items-center justify-between">
-    <Label className="font-mono text-sm capitalize">{label}</Label>
+  <div className={`flex items-center ${label ? 'justify-between' : 'justify-end'}`}>
+    {label && <Label className="font-mono text-sm capitalize">{label}</Label>}
     <div className="flex items-center gap-1.5">
       {[...Array(max)].map((_, i) => (
         <div
@@ -111,12 +111,12 @@ const CharacterSheet = ({ user }) => {
 
   return (
     <Card className="bg-card/80 backdrop-blur-sm border-primary/20 border-glow-green font-mono">
-      <CardHeader className="flex-row items-center justify-between">
+      <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between">
         <div>
           <CardTitle className="text-2xl text-primary glow-text-green">Hoja de Personaje</CardTitle>
           <CardDescription className="font-mono">Edita y gestiona los detalles de tu personaje.</CardDescription>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-4 sm:mt-0">
           <Button onClick={handleSave}><Save className="mr-2" size={16} /> Guardar Cambios</Button>
                     <Button onClick={handleDownloadPdf} variant="outline" disabled={isDownloading}>
             {isDownloading ? 'Generando...' : <><Download className="mr-2" size={16} /> Descargar PDF</>}
@@ -205,7 +205,7 @@ const CharacterSheet = ({ user }) => {
         {/* Spheres */}
         <Card className="border-accent/30">
           <CardHeader><CardTitle className="text-accent flex items-center"><Sparkles className="mr-2" size={20}/>Esferas</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {Object.keys(sheet.spheres).map(sphere => (
               <DotRating key={sphere} label={sphere} value={sheet.spheres[sphere]} max={5} onChange={val => handleInputChange(`spheres.${sphere}`, val)} />
             ))}
@@ -224,7 +224,7 @@ const CharacterSheet = ({ user }) => {
                     <Button size="sm" onClick={addBackground}>Añadir</Button>
                   </div>
                   {sheet.advantages && sheet.advantages.backgrounds && sheet.advantages.backgrounds.map((bg, index) => (
-                    <div key={index} className="flex items-center gap-2">
+                    <div key={index} className="grid grid-cols-2 items-center gap-2">
                       <Input value={bg.name} onChange={e => handleInputChange(`advantages.backgrounds.${index}.name`, e.target.value)} placeholder="Nombre del Trasfondo" className="font-mono" />
                       <DotRating label="" value={bg.value} onChange={val => handleInputChange(`advantages.backgrounds.${index}.value`, val)} />
                     </div>
