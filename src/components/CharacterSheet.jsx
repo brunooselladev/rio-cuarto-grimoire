@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Download, Sparkles } from 'lucide-react';
@@ -79,6 +80,11 @@ const CharacterSheet = ({ user }) => {
 
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const addBackground = () => {
+    const newBackgrounds = [...(sheet.advantages.backgrounds || []), { name: '', value: 0 }];
+    handleInputChange('advantages.backgrounds', newBackgrounds);
+  };
+
   const handleDownloadPdf = async () => {
     if (!sheet) {
       toast({ title: 'Error', description: 'No hay datos de la hoja para descargar.', variant: 'destructive' });
@@ -131,6 +137,18 @@ const CharacterSheet = ({ user }) => {
           <div className="space-y-2">
             <Label>Crónica</Label>
             <Input value={sheet.chronicle} onChange={e => handleInputChange('chronicle', e.target.value)} placeholder="Nombre de la Crónica" />
+          </div>
+          <div className="space-y-2">
+            <Label>Naturaleza</Label>
+            <Input value={sheet.nature} onChange={e => handleInputChange('nature', e.target.value)} placeholder="Arquetipo de personalidad" />
+          </div>
+          <div className="space-y-2">
+            <Label>Conducta</Label>
+            <Input value={sheet.demeanor} onChange={e => handleInputChange('demeanor', e.target.value)} placeholder="Máscara que muestras al mundo" />
+          </div>
+          <div className="space-y-2">
+            <Label>Concepto</Label>
+            <Input value={sheet.concept} onChange={e => handleInputChange('concept', e.target.value)} placeholder="Concepto del personaje" />
           </div>
         </div>
 
@@ -194,6 +212,68 @@ const CharacterSheet = ({ user }) => {
           </CardContent>
         </Card>
 
+        {/* Advantages, Willpower & Health */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="border-accent/30 md:col-span-2">
+            <CardHeader><CardTitle className="text-accent">Ventajas</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-lg">Trasfondos</h4>
+                    <Button size="sm" onClick={addBackground}>Añadir</Button>
+                  </div>
+                  {sheet.advantages && sheet.advantages.backgrounds && sheet.advantages.backgrounds.map((bg, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input value={bg.name} onChange={e => handleInputChange(`advantages.backgrounds.${index}.name`, e.target.value)} placeholder="Nombre del Trasfondo" className="font-mono" />
+                      <DotRating label="" value={bg.value} onChange={val => handleInputChange(`advantages.backgrounds.${index}.value`, val)} />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <h4 className="font-bold text-lg">Otros Rasgos</h4>
+                  {sheet.advantages && (
+                    <>
+                      <DotRating label="Arete" value={sheet.advantages.arete} max={10} onChange={val => handleInputChange('advantages.arete', val)} />
+                      <DotRating label="Fuerza de Voluntad" value={sheet.advantages.willpower} max={10} onChange={val => handleInputChange('advantages.willpower', val)} />
+                      <DotRating label="Quintesencia" value={sheet.advantages.quintessence} max={20} onChange={val => handleInputChange('advantages.quintessence', val)} />
+                      <DotRating label="Paradoja" value={sheet.advantages.paradox} max={10} onChange={val => handleInputChange('advantages.paradox', val)} />
+                    </>
+                  )}
+                </div>
+              </div>
+              <div>
+                <h4 className="font-bold text-lg mt-4 mb-2">Méritos y Defectos</h4>
+                <Textarea 
+                  value={sheet.advantages ? sheet.advantages.merits_flaws : ''} 
+                  onChange={e => handleInputChange('advantages.merits_flaws', e.target.value)} 
+                  placeholder="Liste aquí los méritos y defectos."
+                  className="font-mono"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="space-y-6">
+            <Card className="border-accent/30">
+              <CardHeader><CardTitle className="text-accent">Salud</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {sheet.health && Object.keys(sheet.health).map(level => (
+                  <div key={level} className="flex items-center justify-between gap-2">
+                    <Label className="capitalize font-mono text-xs">{level.replace('_', ' ')}</Label>
+                    <Checkbox checked={sheet.health[level]} onCheckedChange={val => handleInputChange(`health.${level}`, val)} />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card className="border-accent/30">
+              <CardHeader><CardTitle className="text-accent">Experiencia</CardTitle></CardHeader>
+              <CardContent>
+                <Input type="number" value={sheet.experience} onChange={e => handleInputChange('experience', e.target.value)} placeholder="Puntos de experiencia" className="font-mono" />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

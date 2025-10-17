@@ -90,6 +90,7 @@ const CharacterSheetSchema = new Schema({
     willpower: { type: Number, default: 1 },
     quintessence: { type: Number, default: 0 },
     paradox: { type: Number, default: 0 },
+    merits_flaws: { type: String, default: '' },
   },
 
   health: {
