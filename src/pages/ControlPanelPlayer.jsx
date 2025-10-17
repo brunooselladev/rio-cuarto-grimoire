@@ -119,20 +119,24 @@ const ControlPanelPlayer = ({ user }) => {
       <div className="fixed inset-0 scan-line pointer-events-none z-50" />
       <div className="border-b border-primary/30 bg-card/80 backdrop-blur sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/">
-              <Button variant="outline" size="sm" className="border-primary/50 text-primary font-mono">
-                <ChevronLeft className="mr-1" size={16} />
-                VOLVER
-              </Button>
-            </Link>
-            <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono truncate">PANEL DE JUGADOR • {user && user.sub ? user.sub.toUpperCase() : 'JUGADOR'}</h1>
-            <Link to="/map">
-              <Button variant="outline" size="sm" className="border-accent/50 text-accent font-mono">
-                <Map className="mr-1" size={16} />
-                VER MAPA
-              </Button>
-            </Link>
+<div className="flex flex-col md:flex-row items-center md:justify-between gap-3">
+            <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono truncate text-center md:order-2">
+              PANEL DE JUGADOR • {user && user.sub ? user.sub.toUpperCase() : 'JUGADOR'}
+            </h1>
+            <div className="flex items-center gap-2 md:contents">
+              <Link to="/" className="md:order-1">
+                <Button variant="outline" size="sm" className="border-primary/50 text-primary font-mono">
+                  <ChevronLeft className="mr-1" size={16} />
+                  VOLVER
+                </Button>
+              </Link>
+              <Link to="/map" className="md:order-3">
+                <Button variant="outline" size="sm" className="border-accent/50 text-accent font-mono">
+                  <Map className="mr-1" size={16} />
+                  VER MAPA
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

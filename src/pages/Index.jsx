@@ -52,7 +52,7 @@ const Index = () => {
             <Link to="/control">
               <Button size="lg" variant="outline" className="border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground border-2 font-mono text-lg px-8">
                 <Eye className="mr-2" />
-                PANEL NARRADOR
+                PANEL NARRADOR / JUGADOR
               </Button>
             </Link>
           </div>

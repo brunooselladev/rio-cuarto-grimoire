@@ -63,6 +63,7 @@ const CharacterSheetSchema = new Schema({
       computer: { type: Number, default: 0 },
       cosmology: { type: Number, default: 0 },
       enigmas: { type: Number, default: 0 },
+      esoterismo: { type: Number, default: 0 },
       investigation: { type: Number, default: 0 },
       law: { type: Number, default: 0 },
       medicine: { type: Number, default: 0 },

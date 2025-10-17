@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Download, Sparkles } from 'lucide-react';
+import QuintessenceParadoxCard from './QuintessenceParadoxCard.jsx';
+
 
 import { generateCharacterSheetPdf } from '@/lib/pdfService.js';
 
@@ -116,9 +118,9 @@ const CharacterSheet = ({ user }) => {
           <CardTitle className="text-2xl text-primary glow-text-green">Hoja de Personaje</CardTitle>
           <CardDescription className="font-mono">Edita y gestiona los detalles de tu personaje.</CardDescription>
         </div>
-        <div className="flex gap-2 mt-4 sm:mt-0">
+        <div className="flex  md:flex-row flex-col w-full md:w-auto gap-2 mt-4 sm:mt-0">
           <Button onClick={handleSave}><Save className="mr-2" size={16} /> Guardar Cambios</Button>
-                    <Button onClick={handleDownloadPdf} variant="outline" disabled={isDownloading}>
+                    <Button onClick={handleDownloadPdf} variant="outline" disabled>
             {isDownloading ? 'Generando...' : <><Download className="mr-2" size={16} /> Descargar PDF</>}
           </Button>
         </div>
@@ -215,44 +217,81 @@ const CharacterSheet = ({ user }) => {
         {/* Advantages, Willpower & Health */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-accent/30 md:col-span-2">
-            <CardHeader><CardTitle className="text-accent">Ventajas</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-accent">Ventajas</CardTitle>
+            </CardHeader>
+
             <CardContent className="space-y-4">
+              {/* Grid general: 2 columnas en desktop, 1 en mobile */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* --- Columna Izquierda: Trasfondos --- */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <h4 className="font-bold text-lg">Trasfondos</h4>
                     <Button size="sm" onClick={addBackground}>Añadir</Button>
                   </div>
-                  {sheet.advantages && sheet.advantages.backgrounds && sheet.advantages.backgrounds.map((bg, index) => (
+
+                  {sheet.advantages?.backgrounds?.map((bg, index) => (
                     <div key={index} className="grid grid-cols-2 items-center gap-2">
-                      <Input value={bg.name} onChange={e => handleInputChange(`advantages.backgrounds.${index}.name`, e.target.value)} placeholder="Nombre del Trasfondo" className="font-mono" />
-                      <DotRating label="" value={bg.value} onChange={val => handleInputChange(`advantages.backgrounds.${index}.value`, val)} />
+                      <Input
+                        value={bg.name}
+                        onChange={e => handleInputChange(`advantages.backgrounds.${index}.name`, e.target.value)}
+                        placeholder="Nombre del Trasfondo"
+                        className="font-mono"
+                      />
+                      <DotRating
+                        label=""
+                        value={bg.value}
+                        onChange={val => handleInputChange(`advantages.backgrounds.${index}.value`, val)}
+                      />
                     </div>
                   ))}
                 </div>
+
+                {/* --- Columna Derecha: Otros Rasgos --- */}
                 <div className="space-y-3">
                   <h4 className="font-bold text-lg">Otros Rasgos</h4>
-                  {sheet.advantages && (
-                    <>
-                      <DotRating label="Arete" value={sheet.advantages.arete} max={10} onChange={val => handleInputChange('advantages.arete', val)} />
-                      <DotRating label="Fuerza de Voluntad" value={sheet.advantages.willpower} max={10} onChange={val => handleInputChange('advantages.willpower', val)} />
-                      <DotRating label="Quintesencia" value={sheet.advantages.quintessence} max={20} onChange={val => handleInputChange('advantages.quintessence', val)} />
-                      <DotRating label="Paradoja" value={sheet.advantages.paradox} max={10} onChange={val => handleInputChange('advantages.paradox', val)} />
-                    </>
-                  )}
+
+                  {/* Flex con wrap: evita que los ratings se desborden */}
+                  <div className="flex flex-wrap gap-3">
+                    <DotRating
+                      label="Arete"
+                      value={sheet.advantages?.arete}
+                      max={10}
+                      onChange={val => handleInputChange('advantages.arete', val)}
+                    />
+                    <DotRating
+                      label="Fuerza de Voluntad"
+                      value={sheet.advantages?.willpower}
+                      max={10}
+                      onChange={val => handleInputChange('advantages.willpower', val)}
+                    />
+                    <QuintessenceParadoxCard
+                      quintessence={sheet.advantages?.quintessence || 0}
+                      paradox={sheet.advantages?.paradox || 0}
+                      onChange={({ quintessence, paradox }) => {
+                        handleInputChange('advantages.quintessence', quintessence);
+                        handleInputChange('advantages.paradox', paradox);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* --- Méritos y Defectos --- */}
               <div>
                 <h4 className="font-bold text-lg mt-4 mb-2">Méritos y Defectos</h4>
-                <Textarea 
-                  value={sheet.advantages ? sheet.advantages.merits_flaws : ''} 
-                  onChange={e => handleInputChange('advantages.merits_flaws', e.target.value)} 
+                <Textarea
+                  value={sheet.advantages?.merits_flaws || ''}
+                  onChange={e => handleInputChange('advantages.merits_flaws', e.target.value)}
                   placeholder="Liste aquí los méritos y defectos."
                   className="font-mono"
                 />
               </div>
             </CardContent>
           </Card>
+
 
           <div className="space-y-6">
             <Card className="border-accent/30">
