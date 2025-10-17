@@ -14,19 +14,22 @@ import { generateCharacterSheetPdf } from '@/lib/pdfService.js';
 
 // Helper component for dot-based ratings
 const DotRating = ({ label, value, max = 5, onChange }) => (
-  <div className={`flex items-center ${label ? 'justify-between' : 'justify-end'}`}>
+  <div className="flex items-center justify-between w-full">
     {label && <Label className="font-mono text-sm capitalize">{label}</Label>}
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1.5 ml-auto">
       {[...Array(max)].map((_, i) => (
         <div
           key={i}
           onClick={() => onChange(i + 1)}
-          className={`h-3 w-3 rounded-full cursor-pointer transition-all border border-primary/50 ${i < value ? 'bg-primary' : 'bg-background'}`}>
-        </div>
+          className={`h-3 w-3 rounded-full cursor-pointer transition-all border border-primary/50 ${
+            i < value ? 'bg-primary' : 'bg-background'
+          }`}
+        ></div>
       ))}
     </div>
   </div>
 );
+
 
 const CharacterSheet = ({ user }) => {
   const [sheet, setSheet] = useState(null);
@@ -216,7 +219,7 @@ const CharacterSheet = ({ user }) => {
 
         {/* Advantages, Willpower & Health */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-accent/30 md:col-span-2">
+          <Card className="border-accent/30 md:col-span-3 lg:col-span-2">
             <CardHeader>
               <CardTitle className="text-accent">Ventajas</CardTitle>
             </CardHeader>
@@ -249,12 +252,12 @@ const CharacterSheet = ({ user }) => {
                   ))}
                 </div>
 
-{/* --- Columna Derecha: Otros Rasgos --- */}
+                {/* --- Columna Derecha: Otros Rasgos --- */}
                 <div className="space-y-3">
                   <h4 className="font-bold text-lg">Otros Rasgos</h4>
 
                   {/* Flex con wrap: evita que los ratings se desborden */}
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-3 ">
                     <DotRating
                       label="Arete"
                       value={sheet.advantages?.arete}
