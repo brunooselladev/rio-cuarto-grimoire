@@ -24,9 +24,9 @@ const QuintessenceParadoxCard = ({
   const radius = 80;
   const markerSize = 12;
 
-  // Generate top markers (Quintessence: 10 markers from 180° to 360°)
+    // Generate top markers (Quintessence: 10 markers from 180° to 360° exclusive)
   const topMarkers = Array.from({ length: 10 }, (_, i) => {
-    const angle = 180 + (i * 180 / 9); // 9 intervals to reach exactly 360° with the 10th marker
+    const angle = 180 + ((i + 0.5) * 180 / 10); // centrado entre divisiones
     const rad = (angle * Math.PI) / 180;
     return {
       x: centerX + radius * Math.cos(rad),
@@ -36,9 +36,9 @@ const QuintessenceParadoxCard = ({
     };
   });
 
-  // Generate bottom markers (Paradox: 10 markers from 180° to 0°, right to left)
+  // Generate bottom markers (Paradox: 10 markers from 180° down to 0° exclusive)
   const bottomMarkers = Array.from({ length: 10 }, (_, i) => {
-    const angle = 180 - (i * 180 / 9); // 9 intervals to reach exactly 0° with the 10th marker
+    const angle = 180 - ((i + 0.5) * 180 / 10); // centrado entre divisiones
     const rad = (angle * Math.PI) / 180;
     return {
       x: centerX + radius * Math.cos(rad),
@@ -47,6 +47,7 @@ const QuintessenceParadoxCard = ({
       filled: i < paradox
     };
   });
+
 
   const handleMarkerClick = (type, index) => {
     const newValue = index + 1;
