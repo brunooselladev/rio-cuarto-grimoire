@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Save, Download, Sparkles } from 'lucide-react';
+import { Save, Download, Sparkles, Trash2 } from 'lucide-react';
 import QuintessenceParadoxCard from './QuintessenceParadoxCard.jsx';
 
 
@@ -99,17 +99,32 @@ const CharacterSheet = ({ user }) => {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const addBackground = () => {
-    const newBackgrounds = [...(sheet.advantages.backgrounds || []), { name: '', value: 0 }];
+    const newBackgrounds = [...(sheet.advantages?.backgrounds || []), { name: '', value: 0 }];
     handleInputChange('advantages.backgrounds', newBackgrounds);
   };
 
   const addMerit = () => {
-    const newMerits = [...(sheet.advantages.merits || []), { name: '', value: 0 }];
+    const newMerits = [...(sheet.advantages?.merits || []), { name: '', value: 0 }];
     handleInputChange('advantages.merits', newMerits);
   };
 
   const addFlaw = () => {
-    const newFlaws = [...(sheet.advantages.flaws || []), { name: '', value: 0 }];
+    const newFlaws = [...(sheet.advantages?.flaws || []), { name: '', value: 0 }];
+    handleInputChange('advantages.flaws', newFlaws);
+  };
+
+  const removeBackground = (index) => {
+    const newBackgrounds = sheet.advantages.backgrounds.filter((_, i) => i !== index);
+    handleInputChange('advantages.backgrounds', newBackgrounds);
+  };
+
+  const removeMerit = (index) => {
+    const newMerits = sheet.advantages.merits.filter((_, i) => i !== index);
+    handleInputChange('advantages.merits', newMerits);
+  };
+
+  const removeFlaw = (index) => {
+    const newFlaws = sheet.advantages.flaws.filter((_, i) => i !== index);
     handleInputChange('advantages.flaws', newFlaws);
   };
 
@@ -259,7 +274,7 @@ const CharacterSheet = ({ user }) => {
                   </div>
 
                   {sheet.advantages?.backgrounds?.map((bg, index) => (
-                    <div key={index} className="grid grid-cols-2 items-center gap-2">
+                    <div key={index} className="grid grid-cols-[1fr,auto,auto] items-center gap-2">
                       <Input
                         value={bg.name}
                         onChange={e => handleInputChange(`advantages.backgrounds.${index}.name`, e.target.value)}
@@ -271,6 +286,7 @@ const CharacterSheet = ({ user }) => {
                         value={bg.value}
                         onChange={val => handleInputChange(`advantages.backgrounds.${index}.value`, val)}
                       />
+                      <Button variant="destructive" size="icon" onClick={() => removeBackground(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
@@ -327,7 +343,7 @@ const CharacterSheet = ({ user }) => {
                     <Button size="sm" onClick={addMerit}>Añadir</Button>
                   </div>
                   {sheet.advantages?.merits?.map((merit, index) => (
-                    <div key={index} className="grid grid-cols-2 items-center gap-2">
+                    <div key={index} className="grid grid-cols-[1fr,auto,auto] items-center gap-2">
                       <Input
                         value={merit.name}
                         onChange={e => handleInputChange(`advantages.merits.${index}.name`, e.target.value)}
@@ -339,6 +355,7 @@ const CharacterSheet = ({ user }) => {
                         value={merit.value}
                         onChange={val => handleInputChange(`advantages.merits.${index}.value`, val)}
                       />
+                      <Button variant="destructive" size="icon" onClick={() => removeMerit(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
@@ -348,7 +365,7 @@ const CharacterSheet = ({ user }) => {
                     <Button size="sm" onClick={addFlaw}>Añadir</Button>
                   </div>
                   {sheet.advantages?.flaws?.map((flaw, index) => (
-                    <div key={index} className="grid grid-cols-2 items-center gap-2">
+                    <div key={index} className="grid grid-cols-[1fr,auto,auto] items-center gap-2">
                       <Input
                         value={flaw.name}
                         onChange={e => handleInputChange(`advantages.flaws.${index}.name`, e.target.value)}
@@ -360,6 +377,7 @@ const CharacterSheet = ({ user }) => {
                         value={flaw.value}
                         onChange={val => handleInputChange(`advantages.flaws.${index}.value`, val)}
                       />
+                      <Button variant="destructive" size="icon" onClick={() => removeFlaw(index)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
