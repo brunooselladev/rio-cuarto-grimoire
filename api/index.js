@@ -4,30 +4,37 @@ dotenv.config();
 import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
-import serverless from 'serverless-http';
 import { connectDB } from './lib/db.js';
 import Location from './models/Location.js';
 import User from './models/User.js';
-import { seedLocationsIfEmpty, seedAdminIfMissing } from './lib/seed.js';
+import CharacterSheet from './models/CharacterSheet.js';
+import Event from './models/Event.js';
+import AdminNote from './models/AdminNote.js';
 import { verifyPassword } from './lib/password.js';
-import { authRequired } from './lib/auth.js';
-import characterRoutes from './routes/character.js';
-import notesRouter from './routes/notes.js';
-import eventsRouter from './routes/events.js';
-
-
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
-});
+// Auth Middleware
+function authRequired(req, res, next) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return res.status(401).json({ error: 'Missing token' });
 
-// Login
-app.post('/api/auth/login', async (req, res) => {
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-change-me');
+    req.user = payload;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+// Auth Router
+const authRouter = express.Router();
+
+authRouter.post('/login', async (req, res) => {
   const { username, password } = req.body || {};
 
   if (!username || !password) {
@@ -36,8 +43,6 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     await connectDB();
-    await seedAdminIfMissing();
-
     const user = await User.findOne({ username: String(username).toLowerCase().trim() });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
@@ -53,25 +58,230 @@ app.post('/api/auth/login', async (req, res) => {
     );
     res.json({ token });
   } catch (err) {
-  
     console.error('Login error:', err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Ensure DB connection for subsequent routes
+// Character Router
+const characterRouter = express.Router();
+
+characterRouter.get('/all', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const sheets = await CharacterSheet.find().populate('user', 'username');
+    res.json(sheets);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+characterRouter.get('/me', authRequired, async (req, res) => {
+  try {
+    let sheet = await CharacterSheet.findOne({ user: req.user.id });
+
+    if (!sheet) {
+      sheet = new CharacterSheet({ user: req.user.id });
+      await sheet.save();
+    }
+
+    res.json(sheet);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+characterRouter.post('/', authRequired, async (req, res) => {
+  const { ...sheetData } = req.body;
+
+  try {
+    let sheet = await CharacterSheet.findOne({ user: req.user.id });
+
+    if (sheet) {
+      sheet = await CharacterSheet.findOneAndUpdate(
+        { user: req.user.id },
+        { $set: sheetData },
+        { new: true }
+      );
+      return res.json(sheet);
+    }
+
+    sheet = new CharacterSheet({
+      ...sheetData,
+      user: req.user.id,
+    });
+
+    await sheet.save();
+    res.json(sheet);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Events Router
+const eventsRouter = express.Router();
+
+eventsRouter.get('/', async (req, res) => {
+  try {
+    const events = await Event.find().sort({ createdAt: -1 });
+    res.json(events);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+eventsRouter.post('/', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { content, title } = req.body;
+
+  try {
+    const newEvent = new Event({
+      title,
+      content,
+    });
+
+    await newEvent.save();
+    res.status(201).json(newEvent);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+eventsRouter.delete('/:id', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const event = await Event.findByIdAndDelete(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    res.json({ message: 'Event deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Notes Router
+const notesRouter = express.Router();
+
+notesRouter.get('/:playerId', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const notes = await AdminNote.find({ player: req.params.playerId }).populate('admin', 'username');
+    res.json(notes);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+notesRouter.post('/', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { playerId, content } = req.body;
+
+  try {
+    const newNote = new AdminNote({
+      player: playerId,
+      admin: req.user.id,
+      content,
+    });
+
+    await newNote.save();
+    res.json(newNote);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+notesRouter.put('/:noteId', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { content } = req.body;
+
+  try {
+    const updatedNote = await AdminNote.findOneAndUpdate(
+      { _id: req.params.noteId, admin: req.user.id },
+      { content },
+      { new: true }
+    );
+
+    if (!updatedNote) {
+      return res.status(404).json({ error: 'Note not found or you are not the owner' });
+    }
+
+    res.json(updatedNote);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+notesRouter.delete('/:noteId', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const deletedNote = await AdminNote.findOneAndDelete({
+      _id: req.params.noteId,
+      admin: req.user.id,
+    });
+
+    if (!deletedNote) {
+      return res.status(404).json({ error: 'Note not found or you are not the owner' });
+    }
+
+    res.json({ message: 'Note deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Main App
 app.use(async (_req, _res, next) => {
   try {
     await connectDB();
-    await seedLocationsIfEmpty();
-    await seedAdminIfMissing();
     next();
   } catch (err) {
     next(err);
   }
 });
 
-// Locations CRUD
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
+});
+
+app.use('/api/auth', authRouter);
+app.use('/api/character', characterRouter);
+app.use('/api/events', eventsRouter);
+app.use('/api/notes', notesRouter);
+
+// Locations CRUD (remains in the main app)
 app.get('/api/locations', async (_req, res, next) => {
   try {
     const locations = await Location.find().populate('createdBy', 'username role').sort({ createdAt: -1 }).lean();
@@ -80,7 +290,6 @@ app.get('/api/locations', async (_req, res, next) => {
     next(err);
   }
 });
-
 
 app.post('/api/locations', authRequired, async (req, res, next) => {
   try {
@@ -113,7 +322,6 @@ app.post('/api/locations', authRequired, async (req, res, next) => {
 
 app.put('/api/locations/:id', authRequired, async (req, res, next) => {
   try {
-    // Permitimos actualizar todos estos campos
     const allowed = [
       'name',
       'description',
@@ -124,7 +332,7 @@ app.put('/api/locations/:id', authRequired, async (req, res, next) => {
       'sphere',
       'narration',
       'address',
-      'images', 
+      'images',
     ];
 
     const updates = {};
@@ -141,7 +349,6 @@ app.put('/api/locations/:id', authRequired, async (req, res, next) => {
   }
 });
 
-
 app.delete('/api/locations/:id', authRequired, async (req, res, next) => {
   try {
     const loc = await Location.findByIdAndDelete(req.params.id);
@@ -151,102 +358,6 @@ app.delete('/api/locations/:id', authRequired, async (req, res, next) => {
     next(err);
   }
 });
-
-// Add event to a location
-app.post('/api/locations/:id/events', authRequired, async (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  try {
-    const { content } = req.body;
-    const location = await Location.findById(req.params.id);
-    if (!location) return res.status(404).json({ error: 'Location not found' });
-
-    const newEvent = {
-      content,
-      createdBy: req.user.id,
-    };
-
-    location.events.push(newEvent);
-    await location.save();
-    res.status(201).json(location.events[location.events.length - 1]);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Update an event
-app.put('/api/locations/:id/events/:eventId', authRequired, async (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  try {
-    const { content } = req.body;
-    const location = await Location.findById(req.params.id);
-    if (!location) return res.status(404).json({ error: 'Location not found' });
-
-    const event = location.events.id(req.params.eventId);
-    if (!event) return res.status(404).json({ error: 'Event not found' });
-
-    // Check if the user is the creator of the event
-    if (event.createdBy.toString() !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    event.content = content;
-    await location.save();
-    res.json(event);
-  } catch (err) {
-    next(err);
-  }
-});
-
-// Delete an event
-app.delete('/api/locations/:id/events/:eventId', authRequired, async (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  try {
-    const location = await Location.findById(req.params.id);
-    if (!location) return res.status(404).json({ error: 'Location not found' });
-
-    const event = location.events.id(req.params.eventId);
-    if (!event) return res.status(404).json({ error: 'Event not found' });
-
-    // Check if the user is the creator of the event
-    if (event.createdBy.toString() !== req.user.id) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-
-    location.events.pull(req.params.eventId);
-    await location.save();
-    res.json({ message: 'Event deleted successfully' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post('/api/create-admin', async (req, res) => {
-  try {
-    const { username, password, role } = req.body
-
-    const existing = await User.findOne({ username })
-    if (existing) return res.status(400).json({ message: 'El usuario ya existe' })
-
-    const newUser = new User({ username, password, role })
-    await newUser.save()
-
-    res.status(201).json({ message: 'Usuario creado con éxito', user: newUser })
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ message: 'Error al crear el usuario', error: err.message })
-  }
-})
-
-
-app.use('/api/character', characterRoutes);
-app.use('/api/notes', notesRouter);
-app.use('/api/events', eventsRouter);
 
 // Error handler
 app.use((err, _req, res, _next) => {
@@ -262,5 +373,4 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-// Para Vercel - exportar la app directamente
 export default app;
