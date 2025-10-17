@@ -93,8 +93,11 @@ const CharacterSheetSchema = new Schema({
     willpower_current: { type: Number, default: 1 },
     quintessence: { type: Number, default: 0 },
     paradox: { type: Number, default: 0 },
-    merits_flaws: { type: String, default: '' },
+    merits: { type: [{ name: String, value: Number }], default: [] },
+    flaws: { type: [{ name: String, value: Number }], default: [] },
   },
+
+  otherTraits: { type: String, default: '' },
 
   health: {
     magullado: { type: Boolean, default: false },     

@@ -44,6 +44,19 @@ const CharacterSheet = ({ user }) => {
       });
       if (!response.ok) throw new Error('Failed to fetch character sheet');
       const data = await response.json();
+      // Ensure advantages object and its arrays exist
+      if (!data.advantages) {
+        data.advantages = {};
+      }
+      if (!data.advantages.backgrounds) {
+        data.advantages.backgrounds = [];
+      }
+      if (!data.advantages.merits) {
+        data.advantages.merits = [];
+      }
+      if (!data.advantages.flaws) {
+        data.advantages.flaws = [];
+      }
       setSheet(data);
     } catch (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -58,11 +71,11 @@ const CharacterSheet = ({ user }) => {
 
   const handleInputChange = (path, value) => {
     setSheet(prevSheet => {
+      const newSheet = JSON.parse(JSON.stringify(prevSheet));
       const keys = path.split('.');
-      const newSheet = { ...prevSheet };
       let current = newSheet;
       for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i]] = { ...current[keys[i]] };
+        current = current[keys[i]];
       }
       current[keys[keys.length - 1]] = value;
       return newSheet;
@@ -88,6 +101,16 @@ const CharacterSheet = ({ user }) => {
   const addBackground = () => {
     const newBackgrounds = [...(sheet.advantages.backgrounds || []), { name: '', value: 0 }];
     handleInputChange('advantages.backgrounds', newBackgrounds);
+  };
+
+  const addMerit = () => {
+    const newMerits = [...(sheet.advantages.merits || []), { name: '', value: 0 }];
+    handleInputChange('advantages.merits', newMerits);
+  };
+
+  const addFlaw = () => {
+    const newFlaws = [...(sheet.advantages.flaws || []), { name: '', value: 0 }];
+    handleInputChange('advantages.flaws', newFlaws);
   };
 
   const handleDownloadPdf = async () => {
@@ -297,12 +320,58 @@ const CharacterSheet = ({ user }) => {
               </div>
 
               {/* --- Méritos y Defectos --- */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-lg">Méritos</h4>
+                    <Button size="sm" onClick={addMerit}>Añadir</Button>
+                  </div>
+                  {sheet.advantages?.merits?.map((merit, index) => (
+                    <div key={index} className="grid grid-cols-2 items-center gap-2">
+                      <Input
+                        value={merit.name}
+                        onChange={e => handleInputChange(`advantages.merits.${index}.name`, e.target.value)}
+                        placeholder="Nombre del Mérito"
+                        className="font-mono"
+                      />
+                      <DotRating
+                        label=""
+                        value={merit.value}
+                        onChange={val => handleInputChange(`advantages.merits.${index}.value`, val)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-lg">Defectos</h4>
+                    <Button size="sm" onClick={addFlaw}>Añadir</Button>
+                  </div>
+                  {sheet.advantages?.flaws?.map((flaw, index) => (
+                    <div key={index} className="grid grid-cols-2 items-center gap-2">
+                      <Input
+                        value={flaw.name}
+                        onChange={e => handleInputChange(`advantages.flaws.${index}.name`, e.target.value)}
+                        placeholder="Nombre del Defecto"
+                        className="font-mono"
+                      />
+                      <DotRating
+                        label=""
+                        value={flaw.value}
+                        onChange={val => handleInputChange(`advantages.flaws.${index}.value`, val)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* --- Otros Rasgos --- */}
               <div>
-                <h4 className="font-bold text-lg mt-4 mb-2">Méritos y Defectos</h4>
+                <h4 className="font-bold text-lg mt-4 mb-2">Otros Rasgos</h4>
                 <Textarea
-                  value={sheet.advantages?.merits_flaws || ''}
-                  onChange={e => handleInputChange('advantages.merits_flaws', e.target.value)}
-                  placeholder="Liste aquí los méritos y defectos."
+                  value={sheet.otherTraits || ''}
+                  onChange={e => handleInputChange('otherTraits', e.target.value)}
+                  placeholder="Anota aquí otros rasgos, equipo, etc."
                   className="font-mono"
                 />
               </div>

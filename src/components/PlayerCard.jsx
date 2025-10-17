@@ -141,17 +141,19 @@ const PlayerCard = ({ sheet }) => {
     <Card className="border-secondary/30 font-mono">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
-        <CardTitle
-          className="text-[#e4b9ff] font-semibold"
-          style={{
-            textShadow: '0 0 6px #c67aff, 0 0 14px #b34dff, 0 0 26px #a600ff',
-          }}
-        >
-          {sheet.user?.username
-            ? sheet.user.username.charAt(0).toUpperCase() + sheet.user.username.slice(1)
-            : 'Jugador Desconocido'}
-        </CardTitle>
-
+          <div>
+            <CardTitle
+              className="text-[#e4b9ff] font-semibold"
+              style={{
+                textShadow: '0 0 6px #c67aff, 0 0 14px #b34dff, 0 0 26px #a600ff',
+              }}
+            >
+              {sheet.user?.username
+                ? sheet.user.username.charAt(0).toUpperCase() + sheet.user.username.slice(1)
+                : 'Jugador Desconocido'}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">{sheet.name || 'Sin nombre de personaje'}</p>
+          </div>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="w-9 p-0">
               <ChevronsUpDown className="h-4 w-4" />
@@ -179,10 +181,26 @@ const PlayerCard = ({ sheet }) => {
               ))}
             </div>
 
-            {/* Merits and Flaws */}
+            {/* Merits */}
             <div className="space-y-2">
-              <h4 className="font-bold text-lg text-accent">Méritos y Defectos</h4>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{sheet.advantages?.merits_flaws || 'No especificado'}</p>
+              <h4 className="font-bold text-lg text-accent">Méritos</h4>
+              {sheet.advantages?.merits?.map((merit, index) => (
+                <DotRating key={index} label={merit.name} value={merit.value} />
+              ))}
+            </div>
+
+            {/* Flaws */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-lg text-accent">Defectos</h4>
+              {sheet.advantages?.flaws?.map((flaw, index) => (
+                <DotRating key={index} label={flaw.name} value={flaw.value} />
+              ))}
+            </div>
+
+            {/* Other Traits */}
+            <div className="space-y-2">
+              <h4 className="font-bold text-lg text-accent">Otros Rasgos</h4>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{sheet.otherTraits || 'No especificado'}</p>
             </div>
 
             {/* Admin Notes */}
