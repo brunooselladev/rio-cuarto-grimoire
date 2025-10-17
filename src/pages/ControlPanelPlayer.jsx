@@ -231,7 +231,7 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
                   {events.map((event, index) => (
                     <Card key={event._id} className="border-accent/20">
                       <CardHeader>
-                        <CardTitle className="text-primary glow-text-green">Evento Narrativo</CardTitle>
+                        <CardTitle className="text-primary glow-text-green">{event.title || 'Evento Narrativo'}</CardTitle>
                         <CardDescription className="text-muted-foreground font-mono text-xs">
                           {new Date(event.createdAt).toLocaleString()}
                         </CardDescription>

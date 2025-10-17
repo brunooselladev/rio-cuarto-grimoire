@@ -20,11 +20,13 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
   const [sheets, setSheets] = useState([]);
+  const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventContent, setNewEventContent] = useState('');
 
   const handlePublishEvent = async () => {
-    if (!newEventContent.trim()) return;
-    await addEvent(newEventContent);
+    if (!newEventTitle.trim() || !newEventContent.trim()) return;
+    await addEvent({ title: newEventTitle, content: newEventContent });
+    setNewEventTitle('');
     setNewEventContent('');
   };
 
@@ -577,15 +579,15 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
 
               <Card className="border-secondary/30">
                 <CardHeader>
-                  <CardTitle className="text-secondary font-mono text-[#e4b9ff]"
-                    style={{
-                      textShadow: '0 0 6px #c67aff, 0 0 14px #b34dff, 0 0 26px #a600ff',
-                    }}
-                  >
-                    ACTUALIZACIONES
-                  </CardTitle>
+                  <CardTitle className="text-secondary font-mono glow-text-violet">ACTUALIZACIONES</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <Input
+                    value={newEventTitle}
+                    onChange={(e) => setNewEventTitle(e.target.value)}
+                    placeholder="Título del evento..."
+                    className="font-mono mb-3"
+                  />
                   <Textarea
                     value={newEventContent}
                     onChange={(e) => setNewEventContent(e.target.value)}
@@ -604,6 +606,9 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
               <div className="space-y-3 mt-6">
                 {events.map(event => (
                   <Card key={event._id} className="border-accent/30">
+                    <CardHeader>
+                      <CardTitle>{event.title}</CardTitle>
+                    </CardHeader>
                     <CardContent className="p-4">
                       <p className="whitespace-pre-wrap">{event.content}</p>
                       <div className="flex items-center justify-between mt-2">

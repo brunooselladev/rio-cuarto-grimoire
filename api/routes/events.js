@@ -21,10 +21,11 @@ router.post('/', authRequired, async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { content } = req.body;
+  const { content, title } = req.body;
 
   try {
     const newEvent = new Event({
+      title,
       content,
     });
 
@@ -43,12 +44,11 @@ router.delete('/:id', authRequired, async (req, res) => {
   }
 
   try {
-    const event = await Event.findById(req.params.id);
+    const event = await Event.findByIdAndDelete(req.params.id);
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    await event.remove();
     res.json({ message: 'Event deleted successfully' });
   } catch (err) {
     console.error(err.message);

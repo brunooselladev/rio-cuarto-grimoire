@@ -25,7 +25,7 @@ export const useEvents = () => {
     fetchEvents();
   }, [fetchEvents]);
 
-  const addEvent = async (content) => {
+  const addEvent = async ({ title, content }) => {
     try {
       const response = await fetch('/api/events', {
         method: 'POST',
@@ -33,7 +33,7 @@ export const useEvents = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ title, content }),
       });
       if (!response.ok) throw new Error('Failed to add event');
       await fetchEvents(); // Refetch to get the new event
