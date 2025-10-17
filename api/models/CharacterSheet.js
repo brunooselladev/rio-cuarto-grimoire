@@ -74,15 +74,15 @@ const CharacterSheetSchema = new Schema({
   },
 
   spheres: {
-    correspondence: { type: Number, default: 0 },
-    entropy: { type: Number, default: 0 },
-    forces: { type: Number, default: 0 },
-    life: { type: Number, default: 0 },
-    matter: { type: Number, default: 0 },
-    mind: { type: Number, default: 0 },
+    correspondencia: { type: Number, default: 0 },
+    entropia: { type: Number, default: 0 },
+    fuerza: { type: Number, default: 0 },
+    vida: { type: Number, default: 0 },
+    materia: { type: Number, default: 0 },
+    mente: { type: Number, default: 0 },
     prime: { type: Number, default: 0 },
-    spirit: { type: Number, default: 0 },
-    time: { type: Number, default: 0 },
+    espíritu: { type: Number, default: 0 },
+    tiempo: { type: Number, default: 0 },
   },
 
   advantages: {
