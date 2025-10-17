@@ -127,7 +127,7 @@ const getStreetViewUrl = (lat, lng) => {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-4 border-t border-border">
+            <div className="flex flex-col md:flex-rowgap-3 pt-4 border-t border-border">
               <Button 
                 className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-mono border-glow-green"
                 onClick={() => setShowGallery(!showGallery)}
