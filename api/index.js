@@ -12,6 +12,7 @@ import { seedLocationsIfEmpty, seedAdminIfMissing } from './lib/seed.js';
 import { verifyPassword } from './lib/password.js';
 import { authRequired } from './lib/auth.js';
 import characterRoutes from './routes/character.js';
+import notesRouter from './routes/notes.js';
 
 
 
@@ -169,6 +170,7 @@ app.post('/api/create-admin', async (req, res) => {
 
 
 app.use('/api/character', characterRoutes);
+app.use('/api/notes', notesRouter);
 
 // Error handler
 app.use((err, _req, res, _next) => {

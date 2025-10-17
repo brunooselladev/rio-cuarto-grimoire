@@ -1,8 +1,24 @@
 import express from 'express';
 import { authRequired } from '../lib/auth.js';
 import CharacterSheet from '../models/CharacterSheet.js';
+import User from '../models/User.js';
 
 const router = express.Router();
+
+// GET /api/character/all - Get all character sheets (admin only)
+router.get('/all', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const sheets = await CharacterSheet.find().populate('user', 'username');
+    res.json(sheets);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
 
 // GET /api/character/me - Get the character sheet for the logged-in user
 router.get('/me', authRequired, async (req, res) => {
