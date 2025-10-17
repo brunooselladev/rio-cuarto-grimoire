@@ -26,7 +26,8 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Custom marker icons for different POI types
-const createCustomIcon = (color) => {
+const createCustomIcon = (color, isHidden = false) => {
+  const filterStyle = isHidden ? 'filter: grayscale(100%) brightness(0.8);' : '';
   return L.divIcon({
     className: 'custom-marker',
     html: `<div style="
@@ -37,6 +38,7 @@ const createCustomIcon = (color) => {
       border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg);
       box-shadow: 0 0 20px ${color};
+      ${filterStyle}
     "><div style="
       width: 10px;
       height: 10px;
@@ -51,11 +53,6 @@ const createCustomIcon = (color) => {
     iconAnchor: [15, 30],
   });
 };
-
-const powerIcon = createCustomIcon('hsl(158 100% 50%)'); // Green
-const missionIcon = createCustomIcon('hsl(180 100% 50%)'); // Cyan
-const refugeIcon = createCustomIcon('hsl(270 60% 50%)'); // Violet
-const dangerIcon = createCustomIcon('hsl(0 80% 50%)'); // Red
 
 const suggestionIcon = L.divIcon({
   className: 'custom-marker-suggestion',
@@ -90,22 +87,22 @@ const MapView = () => {
   const poisToRender = pois.reduce((acc, poi) => {
     const isOwner = poi.createdBy && user && poi.createdBy._id === user.id;
 
-    const getIcon = () => {
+    const getIcon = (isHidden = false) => {
       if (user?.role === 'player' && isOwner && !poi.visible) {
         return suggestionIcon;
       }
       switch (poi.type) {
-        case 'power': return powerIcon;
-        case 'mission': return missionIcon;
-        case 'refuge': return refugeIcon;
-        case 'danger': return dangerIcon;
+        case 'power': return createCustomIcon('hsl(158 100% 50%)', isHidden); // Green
+        case 'mission': return createCustomIcon('hsl(180 100% 50%)', isHidden); // Cyan
+        case 'refuge': return createCustomIcon('hsl(270 60% 50%)', isHidden); // Violet
+        case 'danger': return createCustomIcon('hsl(0 80% 50%)', isHidden); // Red
         default: return DefaultIcon;
       }
     };
 
     if (user) {
       if (user.role === 'admin') {
-        acc.push({ ...poi, icon: getIcon() });
+        acc.push({ ...poi, icon: getIcon(!poi.visible) });
       } else { // Player logic
         if (filterMode === 'mine') {
           if (isOwner) {
