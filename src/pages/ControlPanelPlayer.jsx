@@ -152,10 +152,11 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Tabs defaultValue="poi" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 font-mono border-glow-cyan">
-            <TabsTrigger value="poi"><BookUser className="mr-2" size={16}/>Mis Puntos de Interés</TabsTrigger>
-            <TabsTrigger value="character"><FileText className="mr-2" size={16}/>Hoja de Personaje</TabsTrigger>
-            <TabsTrigger value="eventos"><Calendar className="mr-2" size={16}/>Eventos</TabsTrigger>
+          <TabsList className="w-full h-auto flex flex-col md:flex-row items-center gap-3font-mono border-glow-cyan">
+            <TabsTrigger value="poi" className="w-full"><BookUser className="mr-2" size={16}/>Mis Puntos de Interés</TabsTrigger>
+            <TabsTrigger value="character" className="w-full"><FileText className="mr-2" size={16}/>Hoja de Personaje</TabsTrigger>
+            <TabsTrigger value="eventos" className="w-full"><Calendar className="mr-2" size={16}/>Eventos</TabsTrigger>
+            <TabsTrigger value="material" className="w-full"><FileText className="mr-2" size={16}/>Material</TabsTrigger>
           </TabsList>
           
           <TabsContent value="poi">
@@ -244,6 +245,24 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
                   ))}
                 </div>
               )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="material">
+            <div className="space-y-4 mt-6">
+              <h2 className="text-2xl font-bold text-primary glow-text-green">Material de Juego</h2>
+              <p className="text-sm text-muted-foreground font-mono">Aquí encontrarás los manuales y guías de referencia para la crónica.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <a href="https://drive.google.com/file/d/1dMMgQ09GzF6kKw3xEluICz2FtNrk59xq/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="w-full font-mono text-lg py-6">Manual Básico M20</Button>
+                </a>
+                <a href="https://drive.google.com/file/d/1W75OrubY3idkdtUbQX6uJeN1ffLLfuro/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="w-full font-mono text-lg py-6">Guía de Referencia Rápida</Button>
+                </a>
+                <a href="https://drive.google.com/file/d/12lih59WPAuYP5W0O8hsbmgZQMXOi0Nsx/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="w-full font-mono text-lg py-6">Grimorio de Hechizos</Button>
+                </a>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
