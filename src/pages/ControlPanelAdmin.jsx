@@ -12,12 +12,21 @@ import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import PlayerCard from '@/components/PlayerCard.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
+import { useEvents } from '@/hooks/useEvents.js';
 
 const ControlPanelAdmin = ({ user, onLogout }) => {
   const { pois, toggleVisibility, addPOI, deletePOI, loading, refresh } = usePOI();
+  const { events, addEvent, deleteEvent } = useEvents();
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
   const [sheets, setSheets] = useState([]);
+  const [newEventContent, setNewEventContent] = useState('');
+
+  const handlePublishEvent = async () => {
+    if (!newEventContent.trim()) return;
+    await addEvent(newEventContent);
+    setNewEventContent('');
+  };
 
   const [form, setForm] = useState({
     name: '',
@@ -577,13 +586,38 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Textarea placeholder="Publica una actualización de historia para los jugadores..." className="font-mono mb-3" rows={4} />
-                  <Button className="w-full bg-secondary text-secondary-foreground font-mono">
+                  <Textarea
+                    value={newEventContent}
+                    onChange={(e) => setNewEventContent(e.target.value)}
+                    placeholder="Publica una actualización de historia para los jugadores..."
+                    className="font-mono mb-3"
+                    rows={4}
+                  />
+                  <Button onClick={handlePublishEvent} className="w-full bg-secondary text-secondary-foreground font-mono">
                     <Sparkles className="mr-2" size={16} />
                     PUBLICAR EVENTO
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Events List */}
+              <div className="space-y-3 mt-6">
+                {events.map(event => (
+                  <Card key={event._id} className="border-accent/30">
+                    <CardContent className="p-4">
+                      <p className="whitespace-pre-wrap">{event.content}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-muted-foreground font-mono">
+                          {new Date(event.createdAt).toLocaleString()}
+                        </p>
+                        <Button variant="destructive" size="sm" onClick={() => deleteEvent(event._id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
               <Card className="border-accent/30 bg-gradient-to-br from-accent/5 to-transparent">
                 <CardHeader>

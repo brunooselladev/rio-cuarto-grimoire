@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Sparkles, Map, Save, MapPin, Upload, X, Image as ImageIcon, FileText, BookUser, LogOut } from 'lucide-react';
+import { ChevronLeft, Plus, Sparkles, Map, Save, MapPin, Upload, X, Image as ImageIcon, FileText, BookUser, LogOut, Users, Calendar } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
@@ -12,11 +12,15 @@ import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import CharacterSheet from "@/components/CharacterSheet.jsx";
+import PlayerCard from "@/components/PlayerCard.jsx";
+import { useEvents } from '@/hooks/useEvents.js';
 
 const ControlPanelPlayer = ({ user, onLogout }) => {
   const { pois, addPOI, loading, refresh } = usePOI();
+  const { events, loading: eventsLoading } = useEvents();
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
+  const [sheets, setSheets] = useState([]);
   const [form, setForm] = useState({
     name: '',
     type: 'power',
@@ -28,6 +32,24 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
   });
   const { toast } = useToast();
   const token = localStorage.getItem('authToken');
+
+  useEffect(() => {
+    const fetchSheets = async () => {
+      if (token) {
+        try {
+          const response = await fetch('/api/character/all', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!response.ok) throw new Error('Failed to fetch character sheets');
+          const data = await response.json();
+          setSheets(data);
+        } catch (error) {
+          toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        }
+      }
+    };
+    fetchSheets();
+  }, [token, toast]);
 
   const userPOIs = pois.filter(poi => poi.visible || (poi.createdBy && poi.createdBy._id === user.id));
 
@@ -150,9 +172,11 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Tabs defaultValue="poi" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 font-mono border-glow-cyan">
+          <TabsList className="grid w-full grid-cols-4 font-mono border-glow-cyan">
             <TabsTrigger value="poi"><BookUser className="mr-2" size={16}/>Mis Puntos de Interés</TabsTrigger>
             <TabsTrigger value="character"><FileText className="mr-2" size={16}/>Hoja de Personaje</TabsTrigger>
+            <TabsTrigger value="jugadores"><Users className="mr-2" size={16}/>Jugadores</TabsTrigger>
+            <TabsTrigger value="eventos"><Calendar className="mr-2" size={16}/>Eventos</TabsTrigger>
           </TabsList>
           
           <TabsContent value="poi">
@@ -215,6 +239,42 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
           
           <TabsContent value="character">
             <CharacterSheet user={user} />
+          </TabsContent>
+
+          <TabsContent value="jugadores">
+            <div className="space-y-4 mt-6">
+              <h2 className="text-2xl font-bold text-secondary glow-text-violet">Jugadores</h2>
+              {sheets.map(sheet => (
+                <PlayerCard key={sheet._id} sheet={sheet} />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="eventos">
+            <div className="space-y-4 mt-6">
+              {eventsLoading ? (
+                <p className="text-muted-foreground italic text-center">Cargando eventos...</p>
+              ) : events.length === 0 ? (
+                <p className="text-muted-foreground italic text-center">No hay eventos disponibles por el momento.</p>
+              ) : (
+                <div className="space-y-4">
+                  {events.map((event, index) => (
+                    <Card key={event._id} className="border-accent/20">
+                      <CardHeader>
+                        <CardTitle className="text-primary glow-text-green">Evento Narrativo</CardTitle>
+                        <CardDescription className="text-muted-foreground font-mono text-xs">
+                          {new Date(event.createdAt).toLocaleString()}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p>{event.content}</p>
+                      </CardContent>
+                      {index < events.length - 1 && <div className="border-t border-accent/20 mt-4 pt-4" />} 
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
