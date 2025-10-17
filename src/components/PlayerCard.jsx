@@ -85,7 +85,17 @@ const PlayerCard = ({ sheet }) => {
     <Card className="border-secondary/30 font-mono">
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CardHeader className="flex flex-row items-center justify-between cursor-pointer">
-          <CardTitle className="text-secondary glow-text-violet">{sheet.user?.username || 'Jugador Desconocido'}</CardTitle>
+        <CardTitle
+          className="text-[#e4b9ff] font-semibold"
+          style={{
+            textShadow: '0 0 6px #c67aff, 0 0 14px #b34dff, 0 0 26px #a600ff',
+          }}
+        >
+          {sheet.user?.username
+            ? sheet.user.username.charAt(0).toUpperCase() + sheet.user.username.slice(1)
+            : 'Jugador Desconocido'}
+        </CardTitle>
+
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="w-9 p-0">
               <ChevronsUpDown className="h-4 w-4" />

@@ -529,7 +529,11 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
 
           <TabsContent value="jugadores">
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-secondary glow-text-violet">Jugadores</h2>
+              <h2 className="text-2xl font-bold text-secondary text-[#e4b9ff] "
+                  style={{
+                  textShadow: '0 0 6px #c67aff, 0 0 14px #b34dff, 0 0 26px #a600ff',
+                }}  
+              >Jugadores</h2>
               {sheets.map(sheet => (
                 <PlayerCard key={sheet._id} sheet={sheet} />
               ))}
