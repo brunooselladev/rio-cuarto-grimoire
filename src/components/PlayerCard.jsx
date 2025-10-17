@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.tsx';
-import { ChevronsUpDown, Plus, MessageSquare } from 'lucide-react';
+import { ChevronsUpDown, Plus, MessageSquare, Edit, Trash2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 
@@ -26,8 +26,60 @@ const PlayerCard = ({ sheet }) => {
   const [newNote, setNewNote] = useState('');
   const [showNewNote, setShowNewNote] = useState(false);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteContent, setEditingNoteContent] = useState('');
   const { toast } = useToast();
   const token = localStorage.getItem('authToken');
+
+  const handleEditNote = (note) => {
+    setEditingNoteId(note._id);
+    setEditingNoteContent(note.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null);
+    setEditingNoteContent('');
+  };
+
+  const handleUpdateNote = async (noteId) => {
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: editingNoteContent }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update note');
+
+      const updatedNote = await response.json();
+      setNotes(notes.map(n => (n._id === noteId ? updatedNote : n)));
+      handleCancelEdit();
+      toast({ title: 'Nota actualizada' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta nota?')) return;
+
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error('Failed to delete note');
+
+      setNotes(notes.filter(n => n._id !== noteId));
+      toast({ title: 'Nota eliminada' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -142,10 +194,36 @@ const PlayerCard = ({ sheet }) => {
                   {notes.length > 0 ? (
                     notes.map(note => (
                       <div key={note._id} className="text-sm p-2 bg-secondary/10 border-l-2 border-secondary rounded">
-                        <p className="whitespace-pre-wrap">{note.content}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          - {note.admin?.username || 'Admin'} el {new Date(note.createdAt).toLocaleDateString()}
-                        </p>
+                        {editingNoteId === note._id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editingNoteContent}
+                              onChange={(e) => setEditingNoteContent(e.target.value)}
+                              className="font-mono"
+                            />
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => handleUpdateNote(note._id)}>Guardar</Button>
+                              <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Cancelar</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="whitespace-pre-wrap">{note.content}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <p className="text-xs text-muted-foreground">
+                                - {note.admin?.username || 'Admin'} el {new Date(note.createdAt).toLocaleDateString()}
+                              </p>
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditNote(note)}>
+                                  <Edit size={12} />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteNote(note._id)}>
+                                  <Trash2 size={12} />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (
