@@ -568,7 +568,13 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
 
               <Card className="border-secondary/30">
                 <CardHeader>
-                  <CardTitle className="text-secondary font-mono glow-text-violet">ACTUALIZACIONES</CardTitle>
+                  <CardTitle className="text-secondary font-mono text-[#e4b9ff]"
+                    style={{
+                      textShadow: '0 0 6px #c67aff, 0 0 14px #b34dff, 0 0 26px #a600ff',
+                    }}
+                  >
+                    ACTUALIZACIONES
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Textarea placeholder="Publica una actualización de historia para los jugadores..." className="font-mono mb-3" rows={4} />

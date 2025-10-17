@@ -186,7 +186,12 @@ const getStreetViewUrl = (lat, lng) => {
             {/* Narration */}
             {poi.narration && (
               <div className="space-y-2 bg-secondary/10 p-4 border-l-4 border-secondary">
-                <div className="flex items-center gap-2 text-sm font-mono text-secondary glow-text-violet">
+                <div 
+                  className="flex items-center gap-2 text-sm font-mono text-secondary text-[#e4b9ff]"
+                  style={{
+                    textShadow: '0 0 6px #c67aff, 0 0 10px #b34dff, 0 0 10px #a600ff',
+                  }}
+                >
                   <Eye size={16} />
                   <span>NARRACIÓN</span>
                 </div>
@@ -211,7 +216,11 @@ const getStreetViewUrl = (lat, lng) => {
             {/* Events Section */}
             <div className="space-y-4 border-t border-border pt-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-mono text-secondary glow-text-violet">
+                <div className="flex items-center gap-2 text-sm font-mono text-secondary text-[#e4b9ff]"                   
+                style={{
+                    textShadow: '0 0 6px #c67aff, 0 0 10px #b34dff, 0 0 10px #a600ff',
+                  }}
+                >
                   <Sparkles size={16} />
                   <span>EVENTOS</span>
                 </div>
