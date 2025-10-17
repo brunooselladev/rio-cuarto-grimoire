@@ -249,7 +249,7 @@ const CharacterSheet = ({ user }) => {
                   ))}
                 </div>
 
-                {/* --- Columna Derecha: Otros Rasgos --- */}
+{/* --- Columna Derecha: Otros Rasgos --- */}
                 <div className="space-y-3">
                   <h4 className="font-bold text-lg">Otros Rasgos</h4>
 
@@ -261,12 +261,26 @@ const CharacterSheet = ({ user }) => {
                       max={10}
                       onChange={val => handleInputChange('advantages.arete', val)}
                     />
-                    <DotRating
-                      label="Fuerza de Voluntad"
-                      value={sheet.advantages?.willpower}
-                      max={10}
-                      onChange={val => handleInputChange('advantages.willpower', val)}
-                    />
+                    
+                    {/* Fuerza de Voluntad con puntos temporales */}
+                    <div className="space-y-2 w-full">
+                      <DotRating
+                        label="Fuerza de Voluntad"
+                        value={sheet.advantages?.willpower}
+                        max={10}
+                        onChange={val => handleInputChange('advantages.willpower', val)}
+                      />
+                      <div className="flex items-center justify-end gap-1.5">
+                        {[...Array(10)].map((_, i) => (
+                          <div
+                            key={i}
+                            onClick={() => handleInputChange('advantages.willpower_current', i + 1)}
+                            className={`h-3 w-3 cursor-pointer transition-all border border-primary/50 ${i < (sheet.advantages?.willpower_current || sheet.advantages?.willpower || 0) ? 'bg-primary' : 'bg-background'}`}>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  
                     <QuintessenceParadoxCard
                       quintessence={sheet.advantages?.quintessence || 0}
                       paradox={sheet.advantages?.paradox || 0}
