@@ -34,7 +34,7 @@ const getTypeLabel = (type) => {
   }
 };
 
-const POIModal = ({ poi, user, onClose }) => {
+const POIModal = ({ poi, user, onClose, refresh }) => {
   const typeColorClass = getTypeColor(poi.type);
   const [showGallery, setShowGallery] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -45,6 +45,10 @@ const POIModal = ({ poi, user, onClose }) => {
   const [editingEventContent, setEditingEventContent] = useState('');
   const { toast } = useToast();
   const token = localStorage.getItem('authToken');
+
+  useEffect(() => {
+    setEvents(poi.events || []);
+  }, [poi.events]);
 
   const handleAddEvent = async () => {
     if (!newEvent.trim()) return;
@@ -66,6 +70,7 @@ const POIModal = ({ poi, user, onClose }) => {
       setNewEvent('');
       setShowEventForm(false);
       toast({ title: 'Evento marcado' });
+      await refresh();
     } catch (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -89,6 +94,7 @@ const POIModal = ({ poi, user, onClose }) => {
       setEditingEventId(null);
       setEditingEventContent('');
       toast({ title: 'Evento actualizado' });
+      await refresh();
     } catch (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -107,6 +113,7 @@ const POIModal = ({ poi, user, onClose }) => {
 
       setEvents(events.filter(e => e._id !== eventId));
       toast({ title: 'Evento eliminado' });
+      await refresh();
     } catch (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }

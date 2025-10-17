@@ -66,7 +66,7 @@ const suggestionIcon = L.divIcon({
 });
 
 const MapView = () => {
-  const { pois, loading } = usePOI();
+  const { pois, loading, refresh } = usePOI();
   const [selectedPOI, setSelectedPOI] = useState(null);
   const [showInfo, setShowInfo] = useState(true);
   const [user, setUser] = useState(null);
@@ -210,7 +210,7 @@ const MapView = () => {
       </div>
 
       {/* POI Detail Modal */}
-      {selectedPOI && <POIModal poi={selectedPOI} user={user} onClose={() => setSelectedPOI(null)} />}
+      {selectedPOI && <POIModal poi={selectedPOI} user={user} onClose={() => setSelectedPOI(null)} refresh={refresh} />}
 
       {/* Filter Popover for Players */}
       {user && user.role === 'player' && (

@@ -217,7 +217,7 @@ app.delete('/api/locations/:id/events/:eventId', authRequired, async (req, res, 
       return res.status(403).json({ error: 'Forbidden' });
     }
 
-    event.remove();
+    location.events.pull(req.params.eventId);
     await location.save();
     res.json({ message: 'Event deleted successfully' });
   } catch (err) {
