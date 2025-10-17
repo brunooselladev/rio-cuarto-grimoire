@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn, MapPin, Upload, X, Image as ImageIcon } from 'lucide-react';
+import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn, LogOut, MapPin, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 
-const ControlPanelAdmin = ({ user }) => {
+const ControlPanelAdmin = ({ user, onLogout }) => {
   const { pois, toggleVisibility, addPOI, deletePOI, loading, refresh } = usePOI();
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
@@ -180,21 +180,31 @@ const ControlPanelAdmin = ({ user }) => {
 
       {/* Header */}
       <div className="border-b border-primary/30 bg-card/80 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/">
-              <Button variant="outline" size="sm" className="border-primary/50 text-primary font-mono">
-                <ChevronLeft className="mr-1" size={16} />
-                VOLVER
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row items-center md:justify-between gap-3">
+            <h1 className="text-xl md:text-2xl font-bold glow-text-green font-mono truncate text-center md:order-2">
+              PANEL DE JUGADOR • {user && user.sub ? user.sub.toUpperCase() : 'JUGADOR'}
+            </h1>
+            <div className="flex w-full flex-col md:contents gap-3 md:gap-0">
+              <div className="flex w-full md:w-auto items-center gap-2">
+                <Link to="/" className="w-full md:w-auto md:order-1">
+                  <Button variant="outline" size="sm" className="w-full md:w-auto border-primary/50 text-primary font-mono">
+                    <ChevronLeft className="mr-1" size={16} />
+                    VOLVER
+                  </Button>
+                </Link>
+                <Link to="/map" className="w-full md:w-auto md:order-3">
+                  <Button variant="outline" size="sm" className="w-full md:w-auto border-accent/50 text-accent font-mono">
+                    <Map className="mr-1" size={16} />
+                    VER MAPA
+                  </Button>
+                </Link>
+              </div>
+              <Button variant="outline" size="sm" onClick={onLogout} className="border-destructive/50 text-destructive font-mono md:order-3 w-full md:w-auto">
+                <LogOut className="mr-1" size={16} />
+                CERRAR SESIÓN
               </Button>
-            </Link>
-            <h1 className="text-lg text-center md:text-2xl font-bold glow-text-green font-mono">PANEL DE CONTROL NARRADOR</h1>
-            <Link to="/map">
-              <Button variant="outline" size="sm" className="border-accent/50 text-accent font-mono">
-                <Map className="mr-1" size={16} />
-                VER MAPA
-              </Button>
-            </Link>
+            </div>
           </div>
         </div>
       </div>

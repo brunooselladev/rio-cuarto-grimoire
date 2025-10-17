@@ -86,12 +86,18 @@ const ControlPanelRouter = () => {
     return <Login onLogin={handleLogin} />;
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    setToken(null);
+    setUser(null);
+  };
+
   if (user.role === 'admin') {
-    return <ControlPanelAdmin user={user} />;
+    return <ControlPanelAdmin user={user} onLogout={handleLogout} />;
   }
 
   if (user.role === 'player') {
-    return <ControlPanelPlayer user={user} />;
+    return <ControlPanelPlayer user={user} onLogout={handleLogout} />;
   }
 
   return <div>Rol no reconocido.</div>;
