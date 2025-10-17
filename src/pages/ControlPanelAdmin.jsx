@@ -59,29 +59,80 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
     });
   };
 
+  // 🗜️ FUNCIÓN PARA COMPRIMIR IMÁGENES
+  const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Crear canvas para redimensionar
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Redimensionar si es muy grande
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convertir a base64 comprimido (JPEG con calidad reducida)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+          
+          // Calcular tamaño aproximado
+          const sizeKB = Math.round((compressedBase64.length * 3) / 4 / 1024);
+          
+          resolve({ data: compressedBase64, sizeKB });
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
-    const base64Promises = files.map(file => {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file); // 📸 convierte a base64
-      });
-    });
-
-    const base64Images = await Promise.all(base64Promises);
-
-    setForm(prev => ({
-      ...prev,
-      images: [...prev.images, ...base64Images],
-    }));
-
+    
     toast({
-      title: 'Imágenes cargadas',
-      description: `${files.length} imagen(es) agregada(s)`,
+      title: 'Comprimiendo imágenes...',
+      description: 'Por favor espera',
       duration: 2000
     });
+
+    try {
+      const compressedPromises = files.map(file => compressImage(file));
+      const compressedImages = await Promise.all(compressedPromises);
+
+      const totalSizeKB = compressedImages.reduce((sum, img) => sum + img.sizeKB, 0);
+      const base64Data = compressedImages.map(img => img.data);
+
+      setForm(prev => ({
+        ...prev,
+        images: [...prev.images, ...base64Data],
+      }));
+
+      toast({
+        title: 'Imágenes comprimidas ✅',
+        description: `${files.length} imagen(es) - ~${totalSizeKB}KB total`,
+        duration: 3000
+      });
+    } catch (err) {
+      console.error('Error al comprimir imágenes:', err);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron procesar las imágenes',
+        variant: 'destructive'
+      });
+    }
   };
 
   const removeImage = (index) => {
@@ -92,15 +143,27 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
   const handleSave = async () => {
     if (!form.name.trim()) return toast({ title: 'Error', description: 'El nombre es obligatorio' });
     if (!form.address || !form.lat || !form.lng) return toast({ title: 'Error', description: 'Selecciona una ubicación válida antes de guardar' });
-
+    
     const lat = Number(form.lat);
     const lng = Number(form.lng);
     if (Number.isNaN(lat) || Number.isNaN(lng)) return toast({ title: 'Error', description: 'Coordenadas inválidas' });
 
+    // 🗜️ Validar tamaño de imágenes (seguridad extra)
+    const totalImageSize = form.images.reduce((sum, img) => sum + (img.length * 3 / 4), 0);
+    const totalSizeMB = (totalImageSize / (1024 * 1024)).toFixed(2);
+    
+    if (totalSizeMB > 10) {
+      return toast({ 
+        title: 'Imágenes muy pesadas', 
+        description: `Total: ${totalSizeMB}MB. Máximo permitido: 10MB. Elimina algunas imágenes.`,
+        variant: 'destructive'
+      });
+    }
+
     try {
       if (editingPOI) {
         // 🔧 MODO EDICIÓN
-        await fetch(`/api/locations/${editingPOI._id || editingPOI.id}`, {
+        const res = await fetch(`/api/locations/${editingPOI._id || editingPOI.id}`, {
           method: 'PUT',
           headers: { 
             'Content-Type': 'application/json',
@@ -108,13 +171,19 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
           },
           body: JSON.stringify({ ...form, lat, lng }),
         });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `Error ${res.status}: No se pudo actualizar`);
+        }
+        
         toast({ title: 'Ubicación actualizada', description: form.name });
       } else {
         // ✨ NUEVA
         await addPOI({ ...form, lat, lng, visible: true });
         toast({ title: 'Ubicación guardada', description: form.name });
       }
-
+      
       setForm({
         name: '', type: 'power', description: '', narration: '', sphere: '',
         address: '', lat: '', lng: '', images: [],
@@ -123,10 +192,14 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
       setShowNewPOI(false);
       await refresh();
     } catch (e) {
-      toast({ title: 'Error', description: 'No autorizado o fallo al guardar' });
+      console.error('Error al guardar:', e);
+      toast({ 
+        title: 'Error', 
+        description: e.message || 'No autorizado o fallo al guardar',
+        variant: 'destructive'
+      });
     }
   };
-
 
   const handleDelete = async (poi) => {
     if (!confirm(`Eliminar "${poi.name}"?`)) return;
@@ -139,6 +212,7 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
   };
 
   const handleEdit = (poi) => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setEditingPOI(poi);
     setShowNewPOI(true);
     setForm({
@@ -153,7 +227,6 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
       images: poi.images || [],
     });
   };
-
 
   const submitLogin = async () => {
     try {
@@ -353,7 +426,7 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
                       )}
                       <div className="text-xs text-muted-foreground italic font-mono p-2 bg-accent/5 rounded border border-accent/20">
                         <ImageIcon size={12} className="inline mr-1" />
-                        Si no cargas imágenes, se usará automáticamente Google Street View
+                        Las imágenes se comprimen automáticamente (max 800px, calidad 70%).
                       </div>
                     </div>
                   </div>

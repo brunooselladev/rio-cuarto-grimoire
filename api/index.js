@@ -122,7 +122,7 @@ app.put('/api/locations/:id', authRequired, async (req, res, next) => {
       'sphere',
       'narration',
       'address',
-      'images', // 👈 nuevo campo
+      'images', 
     ];
 
     const updates = {};
