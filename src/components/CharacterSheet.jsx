@@ -20,7 +20,7 @@ const DotRating = ({ label, value, max = 5, onChange }) => (
       {[...Array(max)].map((_, i) => (
         <div
           key={i}
-          onClick={() => onChange(i + 1)}
+          onClick={() => onChange(i + 1 === value ? 0 : i + 1)}
           className={`h-3 w-3 rounded-full cursor-pointer transition-all border border-primary/50 ${
             i < value ? 'bg-primary' : 'bg-background'
           }`}
