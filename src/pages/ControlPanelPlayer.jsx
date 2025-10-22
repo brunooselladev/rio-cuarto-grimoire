@@ -253,14 +253,14 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
               <h2 className="text-2xl font-bold text-primary glow-text-green">Material de Juego</h2>
               <p className="text-sm text-muted-foreground font-mono">Aquí encontrarás los manuales y guías de referencia para la crónica.</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <a href="https://drive.google.com/file/d/1dMMgQ09GzF6kKw3xEluICz2FtNrk59xq/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
+                <a href="https://drive.google.com/file/d/1W75OrubY3idkdtUbQX6uJeN1ffLLfuro/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" className="w-full font-mono text-lg py-6">Manual Básico M20</Button>
                 </a>
-                <a href="https://drive.google.com/file/d/1W75OrubY3idkdtUbQX6uJeN1ffLLfuro/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" className="w-full font-mono text-lg py-6">Guía de Referencia Rápida</Button>
+                <a href="https://drive.google.com/file/d/1dMMgQ09GzF6kKw3xEluICz2FtNrk59xq/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="w-full font-mono text-lg py-6">Cómo haces éso</Button>
                 </a>
                 <a href="https://drive.google.com/file/d/12lih59WPAuYP5W0O8hsbmgZQMXOi0Nsx/view?usp=drive_link" target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" className="w-full font-mono text-lg py-6">Grimorio de Hechizos</Button>
+                  <Button variant="outline" className="w-full font-mono text-lg py-6">Libro de Los Secretos</Button>
                 </a>
               </div>
             </div>
