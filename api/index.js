@@ -46,7 +46,7 @@ authRouter.post('/login', async (req, res) => {
     const user = await User.findOne({ username: String(username).toLowerCase().trim() });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const isValid = verifyPassword(password, user.password);
+    const isValid = await verifyPassword(password, user.password);
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -299,8 +299,6 @@ app.post('/api/locations', authRequired, async (req, res, next) => {
       return res.status(400).json({ error: 'name, lat and lng are required' });
     }
 
-    const user = await User.findOne({ username: req.user.sub });
-
     const loc = await Location.create({
       name,
       description: description || '',
@@ -312,7 +310,7 @@ app.post('/api/locations', authRequired, async (req, res, next) => {
       narration: narration || '',
       address: address || '',
       images: images || [],
-      createdBy: user ? user._id : null,
+      createdBy: req.user.id,
     });
     res.status(201).json(loc);
   } catch (err) {

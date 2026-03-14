@@ -14,7 +14,8 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       }
-    }
+    },
+    allowedHosts:['4bdac3f15811.ngrok-free.app']
   },
   plugins: [react(), mode === 'development' && componentTagger()].filter(Boolean),
   resolve: {

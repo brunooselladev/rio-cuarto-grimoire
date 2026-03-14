@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from '../api/lib/db.js';
 import User from '../api/models/User.js';
+import { hashPassword } from '../api/lib/password.js';
 
 // Simple .env loader (no deps)
 function loadDotEnv(envPath) {
@@ -38,7 +39,8 @@ async function main() {
   if (existing) {
     console.log(`Admin user "${username}" already exists.`);
   } else {
-    await User.create({ username, password, role: 'admin' });
+    const hashed = await hashPassword(password);
+    await User.create({ username, password: hashed, role: 'admin' });
     console.log(`Created admin user "${username}"`);
   }
   process.exit(0);
