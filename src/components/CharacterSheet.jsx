@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 import { Save, Download, Sparkles, Trash2 } from 'lucide-react';
 import QuintessenceParadoxCard from './QuintessenceParadoxCard.jsx';
 
@@ -35,13 +36,11 @@ const CharacterSheet = ({ user }) => {
   const [sheet, setSheet] = useState(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const token = localStorage.getItem('authToken');
+  const { authFetch } = useAuth();
 
   const fetchSheet = useCallback(async () => {
     try {
-      const response = await fetch('/api/character/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await authFetch('/api/character/me');
       if (!response.ok) throw new Error('Failed to fetch character sheet');
       const data = await response.json();
       // Ensure advantages object and its arrays exist
@@ -63,7 +62,7 @@ const CharacterSheet = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, toast]);
+  }, [authFetch, toast]);
 
   useEffect(() => {
     fetchSheet();
@@ -84,9 +83,8 @@ const CharacterSheet = ({ user }) => {
 
   const handleSave = async () => {
     try {
-      const response = await fetch('/api/character', {
+      const response = await authFetch('/api/character', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(sheet),
       });
       if (!response.ok) throw new Error('Failed to save character sheet');

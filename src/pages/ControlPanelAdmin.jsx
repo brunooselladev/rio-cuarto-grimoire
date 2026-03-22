@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogIn, LogOut, MapPin, Upload, X, Image as ImageIcon, Users } from 'lucide-react';
+import { ChevronLeft, Plus, Eye, EyeOff, Sparkles, Map, Save, Trash2, LogOut, MapPin, Upload, X, Image as ImageIcon, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import PlayerCard from '@/components/PlayerCard.jsx';
@@ -16,6 +17,7 @@ import { useEvents } from '@/hooks/useEvents.js';
 
 const ControlPanelAdmin = ({ user, onLogout }) => {
   const { pois, toggleVisibility, addPOI, deletePOI, loading, refresh } = usePOI();
+  const { authFetch } = useAuth();
   const { events, addEvent, deleteEvent } = useEvents();
   const [showNewPOI, setShowNewPOI] = useState(false);
   const [editingPOI, setEditingPOI] = useState(null);
@@ -41,31 +43,23 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
     lng: '',
     images: [],
   });
-  const [auth, setAuth] = useState({ username: '', password: '' });
-  const [token, setToken] = useState(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    setToken(localStorage.getItem('authToken'));
-  }, []);
-
-  useEffect(() => {
     const fetchSheets = async () => {
-      if (token) {
-        try {
-          const response = await fetch('/api/character/all', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!response.ok) throw new Error('Failed to fetch character sheets');
-          const data = await response.json();
-          setSheets(data);
-        } catch (error) {
+      try {
+        const response = await authFetch('/api/character/all');
+        if (!response.ok) throw new Error('Failed to fetch character sheets');
+        const data = await response.json();
+        setSheets(data);
+      } catch (error) {
+        if (error.message !== 'Sesión expirada') {
           toast({ title: 'Error', description: error.message, variant: 'destructive' });
         }
       }
     };
     fetchSheets();
-  }, [token, toast]);
+  }, [authFetch, toast]);
 
   const getTypeColor = (type) => {
     switch (type) {
@@ -195,12 +189,8 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
     try {
       if (editingPOI) {
         // 🔧 MODO EDICIÓN
-        const res = await fetch(`/api/locations/${editingPOI._id || editingPOI.id}`, {
+        const res = await authFetch(`/api/locations/${editingPOI._id || editingPOI.id}`, {
           method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
           body: JSON.stringify({ ...form, lat, lng }),
         });
         
@@ -260,24 +250,6 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
     });
   };
 
-  const submitLogin = async () => {
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(auth),
-      });
-      if (!res.ok) throw new Error('Credenciales inválidas');
-      const data = await res.json();
-      localStorage.setItem('authToken', data.token);
-      setToken(data.token);
-      toast({ title: 'Sesión iniciada', description: auth.username });
-      await refresh();
-    } catch (e) {
-      toast({ title: 'Error de login', description: 'Usuario o contraseña inválidos' });
-    }
-  };
-
   return (
     <div className={"min-h-screen bg-background"}>
       {/* CRT Effect */}
@@ -316,30 +288,6 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {!token && (
-          <Card className="mb-6 border-destructive/40 relative z-40">
-            <CardHeader>
-              <CardTitle className="text-destructive font-mono">Acceso Narrador</CardTitle>
-              <CardDescription>Inicia sesión para crear, editar y eliminar ubicaciones</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <Label className="font-mono text-xs">USUARIO</Label>
-                <Input value={auth.username} onChange={(e) => setAuth({ ...auth, username: e.target.value })} className="font-mono" />
-              </div>
-              <div>
-                <Label className="font-mono text-xs">CONTRASEÑA</Label>
-                <Input type="password" value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} className="font-mono" />
-              </div>
-              <div className="flex items-end">
-                <Button className="w-full" onClick={submitLogin}>
-                  <LogIn className="mr-2" size={16} /> Ingresar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Tabs defaultValue="ubicaciones" className="w-full">
           <TabsList className="grid w-full grid-cols-3 font-mono border-glow-cyan">
             <TabsTrigger value="ubicaciones">Ubicaciones</TabsTrigger>
@@ -348,21 +296,13 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
           </TabsList>
 
           <TabsContent value="ubicaciones">
-            <div className={`lg:col-span-2 space-y-4 relative ${!token ? 'pointer-events-none' : ''}`}>
-              {!token && (
-                <div className="absolute inset-0 bg-background/60 backdrop-blur-md z-40 rounded-lg flex items-center justify-center">
-                  <div className="text-center font-mono text-muted-foreground">
-                    <LogIn className="mx-auto mb-2 opacity-50" size={32} />
-                    <p className="text-sm">Inicia sesión para acceder al panel</p>
-                  </div>
-                </div>
-              )}
+            <div className="lg:col-span-2 space-y-4 relative">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-primary glow-text-green">Ubicaciones Activas</h2>
                   <p className="text-sm text-muted-foreground font-mono">Gestiona los puntos de interés en el mapa</p>
                 </div>
-                <Button onClick={() => setShowNewPOI(!showNewPOI)} className="bg-primary text-primary-foreground border-glow-green font-mono" disabled={!token}>
+                <Button onClick={() => setShowNewPOI(!showNewPOI)} className="bg-primary text-primary-foreground border-glow-green font-mono">
                   <Plus className="mr-2" size={16} />
                   NUEVO POI
                 </Button>
@@ -467,7 +407,7 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
                       </div>
                     </div>
                     <div className="flex gap-3">
-                      <Button className="flex-1 bg-primary text-primary-foreground font-mono" onClick={handleSave} disabled={!token}>
+                      <Button className="flex-1 bg-primary text-primary-foreground font-mono" onClick={handleSave}>
                         <Save className="mr-2" size={16} /> GUARDAR
                       </Button>
                       <Button variant="outline" onClick={() => setShowNewPOI(false)} className="font-mono">
@@ -514,10 +454,10 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
                           {poi.narration && <div className="mt-3 p-2 bg-secondary/10 border-l-2 border-secondary text-sm italic">"{poi.narration}"</div>}
                         </div>
                         <div className="flex flex-col gap-2">
-                          <Button size="sm" variant={poi.visible ? 'default' : 'outline'} onClick={() => toggleVisibility(poi.id || poi._id)} className="font-mono" disabled={!token}>
+                          <Button size="sm" variant={poi.visible ? 'default' : 'outline'} onClick={() => toggleVisibility(poi.id || poi._id)} className="font-mono">
                             {poi.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleDelete(poi)} className="font-mono" disabled={!token}>
+                          <Button size="sm" variant="outline" onClick={() => handleDelete(poi)} className="font-mono">
                             <Trash2 size={14} />
                           </Button>
                           <Button
@@ -525,8 +465,7 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
                             variant="outline"
                             onClick={() => handleEdit(poi)}
                             className="font-mono"
-                            disabled={!token}
-                          >
+                                                     >
                             ✏️
                           </Button>
                         </div>

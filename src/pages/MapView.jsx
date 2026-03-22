@@ -5,9 +5,9 @@ import { ChevronLeft, Info, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import POIModal from '@/components/POIModal.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { jwtDecode } from 'jwt-decode';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -69,20 +69,8 @@ const MapView = () => {
   const { pois, loading, refresh } = usePOI();
   const [selectedPOI, setSelectedPOI] = useState(null);
   const [showInfo, setShowInfo] = useState(true);
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [filterMode, setFilterMode] = useState('all'); // 'all' or 'mine'
-
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        setUser(decoded);
-      } catch (error) {
-        console.error("Failed to decode token:", error);
-      }
-    }
-  }, []);
 
   const poisToRender = pois.reduce((acc, poi) => {
     const isOwner = poi.createdBy && user && poi.createdBy._id === user.id;

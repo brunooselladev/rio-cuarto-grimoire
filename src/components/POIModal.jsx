@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { useToast } from '@/hooks/use-toast.js';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 
 const getTypeColor = (type) => {
   switch (type) {
@@ -44,7 +45,7 @@ const POIModal = ({ poi, user, onClose, refresh }) => {
   const [editingEventId, setEditingEventId] = useState(null);
   const [editingEventContent, setEditingEventContent] = useState('');
   const { toast } = useToast();
-  const token = localStorage.getItem('authToken');
+  const { authFetch } = useAuth();
 
   useEffect(() => {
     setEvents(poi.events || []);
@@ -54,12 +55,8 @@ const POIModal = ({ poi, user, onClose, refresh }) => {
     if (!newEvent.trim()) return;
 
     try {
-      const response = await fetch(`/api/locations/${poi._id}/events`, {
+      const response = await authFetch(`/api/locations/${poi._id}/events`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ content: newEvent }),
       });
 
@@ -78,12 +75,8 @@ const POIModal = ({ poi, user, onClose, refresh }) => {
 
   const handleUpdateEvent = async (eventId) => {
     try {
-      const response = await fetch(`/api/locations/${poi._id}/events/${eventId}`, {
+      const response = await authFetch(`/api/locations/${poi._id}/events/${eventId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ content: editingEventContent }),
       });
 
@@ -104,9 +97,8 @@ const POIModal = ({ poi, user, onClose, refresh }) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este evento?')) return;
 
     try {
-      const response = await fetch(`/api/locations/${poi._id}/events/${eventId}`, {
+      const response = await authFetch(`/api/locations/${poi._id}/events/${eventId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error('Failed to delete event');

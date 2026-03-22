@@ -1,15 +1,27 @@
 import bcrypt from 'bcryptjs';
 
 /**
+ * Detecta si un string es un hash bcrypt (empieza con $2a$, $2b$ o $2y$ y tiene 60 chars).
+ */
+function isBcryptHash(str) {
+  return typeof str === 'string' && str.length === 60 && /^\$2[aby]\$/.test(str);
+}
+
+/**
  * Verifica si una contraseña en texto plano coincide con el hash guardado.
+ * Soporta tanto contraseñas hasheadas con bcrypt como contraseñas legacy en texto plano.
  * @param {string} password - Contraseña ingresada por el usuario.
- * @param {string} hashedPassword - Contraseña hasheada en la base de datos.
+ * @param {string} storedPassword - Contraseña guardada en la base de datos.
  * @returns {Promise<boolean>}
  */
-export async function verifyPassword(password, hashedPassword) {
-  if (!password || !hashedPassword) return false;
+export async function verifyPassword(password, storedPassword) {
+  if (!password || !storedPassword) return false;
   try {
-    return await bcrypt.compare(password, hashedPassword);
+    if (isBcryptHash(storedPassword)) {
+      return await bcrypt.compare(password, storedPassword);
+    }
+    // Legacy: plain text comparison
+    return password === storedPassword;
   } catch {
     return false;
   }

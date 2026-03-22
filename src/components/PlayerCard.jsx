@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronsUpDown, Plus, MessageSquare, Edit, Trash2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { useToast } from '@/hooks/use-toast.js';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 
 const DotRating = ({ label, value, max = 5 }) => (
   <div className="flex items-center justify-between">
@@ -29,7 +30,7 @@ const PlayerCard = ({ sheet }) => {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const { toast } = useToast();
-  const token = localStorage.getItem('authToken');
+  const { authFetch } = useAuth();
 
   const handleEditNote = (note) => {
     setEditingNoteId(note._id);
@@ -43,12 +44,8 @@ const PlayerCard = ({ sheet }) => {
 
   const handleUpdateNote = async (noteId) => {
     try {
-      const response = await fetch(`/api/notes/${noteId}`, {
+      const response = await authFetch(`/api/notes/${noteId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ content: editingNoteContent }),
       });
 
@@ -67,9 +64,8 @@ const PlayerCard = ({ sheet }) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta nota?')) return;
 
     try {
-      const response = await fetch(`/api/notes/${noteId}`, {
+      const response = await authFetch(`/api/notes/${noteId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.ok) throw new Error('Failed to delete note');
@@ -86,9 +82,7 @@ const PlayerCard = ({ sheet }) => {
       if (isOpen && sheet.user?._id) {
         setIsLoadingNotes(true);
         try {
-          const response = await fetch(`/api/notes/${sheet.user._id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const response = await authFetch(`/api/notes/${sheet.user._id}`);
           if (!response.ok) throw new Error('Failed to fetch notes');
           const data = await response.json();
           setNotes(data);
@@ -101,7 +95,7 @@ const PlayerCard = ({ sheet }) => {
     };
 
     fetchNotes();
-  }, [isOpen, sheet.user?._id, token, toast]);
+  }, [isOpen, sheet.user?._id, authFetch, toast]);
 
   useEffect(() => {
     console.log('Character Sheet:', sheet);
@@ -111,12 +105,8 @@ const PlayerCard = ({ sheet }) => {
     if (!newNote.trim()) return;
 
     try {
-      const response = await fetch('/api/notes', {
+      const response = await authFetch('/api/notes', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           playerId: sheet.user._id,
           content: newNote,

@@ -8,6 +8,7 @@ import { ChevronLeft, Plus, Sparkles, Map, Save, MapPin, Upload, X, Image as Ima
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
@@ -29,7 +30,7 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
     images: [],
   });
   const { toast } = useToast();
-  const token = localStorage.getItem('authToken');
+  const { authFetch } = useAuth();
 
   const userPOIs = pois.filter(poi => poi.visible || (poi.createdBy && poi.createdBy._id === user.id));
 
@@ -78,9 +79,8 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
 
     try {
       if (editingPOI) {
-        await fetch(`/api/locations/${editingPOI.id || editingPOI._id}`, {
+        await authFetch(`/api/locations/${editingPOI.id || editingPOI._id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ ...form, lat, lng }),
         });
         toast({ title: 'Ubicación actualizada', description: form.name });

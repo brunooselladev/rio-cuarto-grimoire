@@ -10,7 +10,7 @@ import User from './models/User.js';
 import CharacterSheet from './models/CharacterSheet.js';
 import Event from './models/Event.js';
 import AdminNote from './models/AdminNote.js';
-import { verifyPassword } from './lib/password.js';
+import { verifyPassword, hashPassword } from './lib/password.js';
 
 const app = express();
 app.use(cors());
@@ -34,6 +34,10 @@ function authRequired(req, res, next) {
 // Auth Router
 const authRouter = express.Router();
 
+authRouter.get('/verify', authRequired, (req, res) => {
+  res.json({ id: req.user.id, username: req.user.sub, role: req.user.role });
+});
+
 authRouter.post('/login', async (req, res) => {
   const { username, password } = req.body || {};
 
@@ -49,6 +53,12 @@ authRouter.post('/login', async (req, res) => {
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Auto-migrate plain text passwords to bcrypt
+    if (user.password.length < 60 || !/^\$2[aby]\$/.test(user.password)) {
+      const hashed = await hashPassword(password);
+      await User.updateOne({ _id: user._id }, { $set: { password: hashed } });
     }
 
     const token = jwt.sign(

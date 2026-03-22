@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { jwtDecode } from 'jwt-decode';
+import { useState } from 'react';
 import ControlPanelAdmin from './ControlPanelAdmin.jsx';
 import ControlPanelPlayer from './ControlPanelPlayer.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -11,22 +11,17 @@ import { Label } from '@/components/ui/label.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { LogIn } from 'lucide-react';
 
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [auth, setAuth] = useState({ username: '', password: '' });
+  const { login } = useAuth();
   const { toast } = useToast();
+  const { refresh } = usePOI();
 
   const submitLogin = async () => {
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(auth),
-      });
-      if (!res.ok) throw new Error('Credenciales inválidas');
-      const data = await res.json();
-      localStorage.setItem('authToken', data.token);
+      await login(auth.username, auth.password);
       toast({ title: 'Sesión iniciada', description: auth.username });
-      onLogin(data.token);
+      refresh();
     } catch (e) {
       toast({ title: 'Error de login', description: 'Usuario o contraseña inválidos' });
     }
@@ -59,45 +54,26 @@ const Login = ({ onLogin }) => {
 };
 
 const ControlPanelRouter = () => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('authToken'));
-  const { refresh } = usePOI();
+  const { user, loading, logout } = useAuth();
 
-  useEffect(() => {
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        setUser(decoded);
-      } catch (error) {
-        console.error("Token inválido:", error);
-        localStorage.removeItem('authToken');
-        setToken(null);
-        setUser(null);
-      }
-    }
-  }, [token]);
-
-  const handleLogin = (newToken) => {
-    setToken(newToken);
-    refresh();
-  };
-
-  if (!user) {
-    return <Login onLogin={handleLogin} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-primary font-mono animate-pulse">Verificando sesión...</div>
+      </div>
+    );
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    setToken(null);
-    setUser(null);
-  };
+  if (!user) {
+    return <Login />;
+  }
 
   if (user.role === 'admin') {
-    return <ControlPanelAdmin user={user} onLogout={handleLogout} />;
+    return <ControlPanelAdmin user={user} onLogout={logout} />;
   }
 
   if (user.role === 'player') {
-    return <ControlPanelPlayer user={user} onLogout={handleLogout} />;
+    return <ControlPanelPlayer user={user} onLogout={logout} />;
   }
 
   return <div>Rol no reconocido.</div>;

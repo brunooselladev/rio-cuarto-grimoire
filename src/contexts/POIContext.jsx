@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext.jsx';
 
 const POIContext = createContext();
 
@@ -13,35 +14,26 @@ export const usePOI = () => {
 export const POIProvider = ({ children }) => {
   const [pois, setPois] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('authToken');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token || ''}`
-    };
-  };
+  const { authFetch } = useAuth();
 
   // Cargar POIs desde la API
   const fetchPOIs = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/locations', {
-        headers: getAuthHeaders()
-      });
-      
+      const response = await authFetch('/api/locations');
+
       if (!response.ok) {
         throw new Error('Error al cargar ubicaciones');
       }
-      
+
       const data = await response.json();
-      
+
       // Normalizar los datos para que tengan un 'id' consistente
       const normalizedData = data.map(poi => ({
         ...poi,
         id: poi._id || poi.id
       }));
-      
+
       setPois(normalizedData);
     } catch (error) {
       console.error('Error fetching POIs:', error);
@@ -54,9 +46,8 @@ export const POIProvider = ({ children }) => {
   // Agregar nuevo POI
   const addPOI = async (poiData) => {
     try {
-      const response = await fetch('/api/locations', {
+      const response = await authFetch('/api/locations', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(poiData)
       });
 
@@ -79,9 +70,8 @@ export const POIProvider = ({ children }) => {
       const poi = pois.find(p => p.id === id || p._id === id);
       if (!poi) throw new Error('POI no encontrado');
 
-      const response = await fetch(`/api/locations/${id}`, {
+      const response = await authFetch(`/api/locations/${id}`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ visible: !poi.visible })
       });
 
@@ -90,14 +80,14 @@ export const POIProvider = ({ children }) => {
       }
 
       const updatedPOI = await response.json();
-      
+
       // Actualizar el estado local
-      setPois(prev => prev.map(p => 
-        (p.id === id || p._id === id) 
+      setPois(prev => prev.map(p =>
+        (p.id === id || p._id === id)
           ? { ...updatedPOI, id: updatedPOI._id || updatedPOI.id }
           : p
       ));
-      
+
       return updatedPOI;
     } catch (error) {
       console.error('Error toggling visibility:', error);
@@ -108,9 +98,8 @@ export const POIProvider = ({ children }) => {
   // Eliminar POI
   const deletePOI = async (id) => {
     try {
-      const response = await fetch(`/api/locations/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
+      const response = await authFetch(`/api/locations/${id}`, {
+        method: 'DELETE'
       });
 
       if (!response.ok) {
