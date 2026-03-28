@@ -24,6 +24,7 @@ const buildHiddenForm = (wizardState) => ({
   systemPrompt: wizardState?.hidden?.systemPrompt || '',
   rulesContext: wizardState?.hidden?.rulesContext || '',
   lore: wizardState?.hidden?.lore || '',
+  negativePrompt: wizardState?.hidden?.negativePrompt || '',
   puzzleActive: Boolean(wizardState?.hidden?.puzzle?.active),
   puzzleDescription: wizardState?.hidden?.puzzle?.description || '',
   puzzleSello: wizardState?.hidden?.puzzle?.sello || '',
@@ -112,6 +113,7 @@ const AdminWizardPanel = () => {
           systemPrompt: hiddenForm.systemPrompt,
           rulesContext: hiddenForm.rulesContext,
           lore: hiddenForm.lore,
+          negativePrompt: hiddenForm.negativePrompt,
           puzzle: {
             active: hiddenForm.puzzleActive,
             description: hiddenForm.puzzleDescription,
@@ -363,6 +365,24 @@ const AdminWizardPanel = () => {
               rows={8} className="font-mono"
               placeholder="Ej: La cronica transcurre en Rio Cuarto, 2026. Los personajes son Magos recien Despertados. La Technocracia controla el hospital central. El Nodo principal esta en el sotano de la Biblioteca España..."
             />
+          </div>
+
+          {/* Prompt negativo — secretos que el mago no debe revelar */}
+          <div className="space-y-2 border-t pt-4" style={{ borderColor: 'rgba(255,60,60,0.2)' }}>
+            <Label className="font-mono text-xs uppercase tracking-[0.24em]" style={{ color: '#ff6b6b' }}>Restricciones secretas</Label>
+            <div className="font-mono text-xs text-muted-foreground mb-1">
+              Información sensible que el mago <strong>nunca debe revelar</strong> a los jugadores. Si un jugador pregunta por algo vedado aquí, el mago responderá con evasivas místicas sin confirmar que hay restricciones. Solo vos como narrador podés ver este campo.
+            </div>
+            <Textarea
+              value={hiddenForm.negativePrompt}
+              onChange={(e) => { setHiddenForm((c) => ({ ...c, negativePrompt: e.target.value })); setHiddenDirty(true); }}
+              rows={5} className="font-mono"
+              placeholder="Ej: No revelar que el traidor del grupo es Elena. No confirmar que el Dr. Vidal es Technocrático hasta la sesión 5. No hablar de la ubicación del Nodo secundario..."
+              style={{ borderColor: 'rgba(255,60,60,0.3)', background: 'rgba(255,0,0,0.03)' }}
+            />
+            <div className="font-mono text-[10px]" style={{ color: 'rgba(255,107,107,0.7)' }}>
+              ⚠ Este campo nunca viaja al cliente ni aparece en ninguna respuesta pública de la API.
+            </div>
           </div>
 
           {/* Puzzle — solo visible si el mago está activo */}

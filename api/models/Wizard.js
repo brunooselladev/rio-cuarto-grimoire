@@ -19,6 +19,7 @@ export function createWizardDefaults() {
       systemPrompt: '',
       rulesContext: '',
       lore: '',
+      negativePrompt: '',
       puzzle: {
         active: false,
         description: '',
@@ -58,6 +59,7 @@ const HiddenWizardSchema = new mongoose.Schema(
     systemPrompt: { type: String, default: '', trim: true },
     rulesContext: { type: String, default: '', trim: true },
     lore: { type: String, default: '', trim: true },
+    negativePrompt: { type: String, default: '', trim: true },
     puzzle: { type: PuzzleSchema, default: () => ({}) },
   },
   { _id: false },

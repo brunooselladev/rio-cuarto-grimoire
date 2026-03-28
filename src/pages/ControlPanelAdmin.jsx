@@ -14,6 +14,7 @@ import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import PlayerCard from '@/components/PlayerCard.jsx';
 import AdminWizardPanel from '@/components/AdminWizardPanel.jsx';
 import HiddenWizard from '@/components/HiddenWizard.jsx';
+import NarratorWizardChat from '@/components/NarratorWizardChat.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { useEvents } from '@/hooks/useEvents.js';
 
@@ -593,6 +594,7 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
       </div>
 
       <HiddenWizard location="panel" />
+      <NarratorWizardChat />
     </div>
   );
 };
