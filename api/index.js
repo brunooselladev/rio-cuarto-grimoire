@@ -270,7 +270,7 @@ function buildWizardResponse(doc, userId = null) {
   };
 }
 
-function buildWizardSystemPrompt(hiddenConfig = {}, notes = [], playerMemory = null) {
+function buildWizardSystemPrompt(hiddenConfig = {}, notes = [], playerMemory = null, events = []) {
   const styleRules = [
     'Sos El Mago Digital de Rio Cuarto Grimoire.',
     'Hablas siempre en primera persona como un mago oscuro de estetica cyberpunk noventosa.',
@@ -300,6 +300,11 @@ function buildWizardSystemPrompt(hiddenConfig = {}, notes = [], playerMemory = n
 
   if (baseContext.length) {
     promptSections.push(baseContext.join('\n\n'));
+  }
+
+  if (events.length) {
+    const eventLines = events.map((e) => `[${new Date(e.createdAt).toLocaleDateString('es-AR')}] ${e.title}: ${e.content}`).join('\n');
+    promptSections.push(`Eventos recientes de la campaña (cronología narrativa — usá esto para contextualizar tus respuestas):\n${eventLines}`);
   }
 
   if (notes.length) {
@@ -732,7 +737,8 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
     }
 
     const playerMemory = await PlayerMemory.findOne({ userId: req.user.id }).lean().catch(() => null);
-    const systemPrompt = buildWizardSystemPrompt(hiddenConfig, wizard.notes || [], playerMemory);
+    const events = await Event.find().sort({ createdAt: -1 }).limit(20).lean().catch(() => []);
+    const systemPrompt = buildWizardSystemPrompt(hiddenConfig, wizard.notes || [], playerMemory, events);
 
     if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
       return res.json({ text: FALLBACK_WIZARD_SPEECH, puzzleSolved: false });

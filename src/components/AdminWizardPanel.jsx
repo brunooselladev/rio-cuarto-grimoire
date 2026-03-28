@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, Plus, Trash2 } from 'lucide-react';
+import { Sparkles, Plus, Trash2, Calendar } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
@@ -47,6 +47,14 @@ const AdminWizardPanel = () => {
   const [newNoteText, setNewNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState(null);
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/events', { headers: getWizardHeaders() })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setEvents(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!urgentDirty) setUrgentForm(buildUrgentForm(wizardState));
@@ -500,6 +508,44 @@ const AdminWizardPanel = () => {
           {(!wizardState?.notes || wizardState.notes.length === 0) && (
             <div className="font-mono text-xs text-muted-foreground text-center py-4">
               No hay notas todavia. Las notas que agregues seran parte del conocimiento permanente del mago.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Eventos de la Campaña ── */}
+      <Card className="border-primary/20 bg-card/80">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-primary font-mono">
+            <Calendar size={18} />
+            Eventos de la Campaña
+          </CardTitle>
+          <CardDescription className="font-mono">
+            El mago conoce automáticamente todos los eventos publicados. Los usa como contexto narrativo al hablar con los jugadores.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <div className="font-mono text-xs text-muted-foreground text-center py-4">
+              No hay eventos publicados todavia.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="font-mono text-xs text-primary/70 mb-3">
+                {events.length} evento(s) disponible(s) como contexto del mago
+              </div>
+              {events.slice(0, 10).map((ev) => (
+                <div key={ev._id} className="rounded-md border border-primary/20 bg-background/40 px-3 py-2">
+                  <div className="font-mono text-xs font-bold text-primary">{ev.title}</div>
+                  <div className="font-mono text-xs text-muted-foreground mt-0.5 line-clamp-2">{ev.content}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground/60 mt-1">
+                    {new Date(ev.createdAt).toLocaleDateString('es-AR')}
+                  </div>
+                </div>
+              ))}
+              {events.length > 10 && (
+                <div className="font-mono text-xs text-muted-foreground text-center">...y {events.length - 10} más</div>
+              )}
             </div>
           )}
         </CardContent>
