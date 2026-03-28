@@ -24,6 +24,9 @@ const buildHiddenForm = (wizardState) => ({
   systemPrompt: wizardState?.hidden?.systemPrompt || '',
   rulesContext: wizardState?.hidden?.rulesContext || '',
   lore: wizardState?.hidden?.lore || '',
+  puzzleActive: Boolean(wizardState?.hidden?.puzzle?.active),
+  puzzleDescription: wizardState?.hidden?.puzzle?.description || '',
+  puzzleSello: wizardState?.hidden?.puzzle?.sello || '',
 });
 
 const inputClassName =
@@ -101,6 +104,11 @@ const AdminWizardPanel = () => {
           systemPrompt: hiddenForm.systemPrompt,
           rulesContext: hiddenForm.rulesContext,
           lore: hiddenForm.lore,
+          puzzle: {
+            active: hiddenForm.puzzleActive,
+            description: hiddenForm.puzzleDescription,
+            sello: hiddenForm.puzzleSello,
+          },
         },
       };
       const response = await fetch('/api/wizard', {
@@ -348,6 +356,78 @@ const AdminWizardPanel = () => {
               placeholder="Ej: La cronica transcurre en Rio Cuarto, 2026. Los personajes son Magos recien Despertados. La Technocracia controla el hospital central. El Nodo principal esta en el sotano de la Biblioteca España..."
             />
           </div>
+
+          {/* Puzzle — solo visible si el mago está activo */}
+          {hiddenForm.active && (
+            <div className="space-y-4 border-t border-accent/10 pt-4">
+              <div className="font-mono text-xs uppercase tracking-[0.24em] text-accent">Modo Puzzle</div>
+              <div className="font-mono text-xs text-muted-foreground mb-2">
+                Mientras el puzzle está activo, el jugador no puede cerrar el mago hasta resolverlo. El sello es una palabra clave que fuerza el cierre sin pasar por la IA.
+              </div>
+              <div className="flex items-center justify-between rounded-md border border-accent/20 bg-background/50 px-4 py-3">
+                <div>
+                  <div className="font-mono text-sm text-accent">Puzzle activo</div>
+                  <Badge variant="outline" className="font-mono text-xs mt-1 border-secondary/50 text-secondary">
+                    Resuelto por {wizardState?.hidden?.puzzle?.solvedBy?.length || 0} jugador(es)
+                  </Badge>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setHiddenForm((c) => ({ ...c, puzzleActive: !c.puzzleActive })); setHiddenDirty(true); }}
+                    className="font-mono text-xs px-3 py-1.5 rounded border transition-colors"
+                    style={hiddenForm.puzzleActive
+                      ? { background: '#7b4fa0', color: '#fff', borderColor: '#7b4fa0' }
+                      : { background: '#333', color: '#aaa', borderColor: '#555' }}
+                  >
+                    {hiddenForm.puzzleActive ? 'ACTIVO' : 'INACTIVO'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const r = await fetch('/api/wizard', {
+                          method: 'PUT',
+                          headers: getWizardHeaders({ includeJson: true }),
+                          body: JSON.stringify({ hidden: { puzzle: { solvedBy: [] } } }),
+                        });
+                        if (!r.ok) throw new Error('No se pudo resetear');
+                        await refreshWizard();
+                        toast({ title: 'Resueltos reseteados' });
+                      } catch (e) {
+                        toast({ title: 'Error', description: e.message, variant: 'destructive' });
+                      }
+                    }}
+                    className="font-mono text-[10px] px-2 py-1 rounded border border-destructive/40 text-destructive/70 hover:text-destructive transition-colors"
+                  >
+                    Resetear resueltos
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="font-mono text-xs uppercase tracking-[0.24em]">Descripción del enigma</Label>
+                <Textarea
+                  value={hiddenForm.puzzleDescription}
+                  onChange={(e) => { setHiddenForm((c) => ({ ...c, puzzleDescription: e.target.value })); setHiddenDirty(true); }}
+                  rows={4} className="font-mono"
+                  placeholder="Escribí el enigma que el jugador debe resolver. El mago lo interpretará y evaluará las respuestas..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="font-mono text-xs uppercase tracking-[0.24em]">Sello de emergencia</Label>
+                <input
+                  type="text"
+                  value={hiddenForm.puzzleSello}
+                  onChange={(e) => { setHiddenForm((c) => ({ ...c, puzzleSello: e.target.value })); setHiddenDirty(true); }}
+                  placeholder="Palabra clave secreta (solo se compara en el servidor)"
+                  className={inputClassName}
+                />
+                <div className="font-mono text-xs text-muted-foreground">
+                  Si el jugador escribe exactamente esta palabra, el cierre se fuerza sin consultar la IA. Nunca viaja al cliente.
+                </div>
+              </div>
+            </div>
+          )}
 
           <Button type="button" onClick={handleHiddenSave} disabled={savingHidden} className="bg-accent text-accent-foreground font-mono">
             {savingHidden ? 'Guardando...' : 'Guardar mago oculto'}

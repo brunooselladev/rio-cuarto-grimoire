@@ -5,6 +5,8 @@ import { ChevronLeft, Info, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import POIModal from '@/components/POIModal.jsx';
 import HiddenWizard from '@/components/HiddenWizard.jsx';
+import AvatarWidget from '@/components/AvatarWidget.jsx';
+import AvatarOverlay from '@/components/AvatarOverlay.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import 'leaflet/dist/leaflet.css';
@@ -239,6 +241,8 @@ const MapView = () => {
         <div className="animate-pulse-glow">█</div>
       </div>
       <HiddenWizard location="map" />
+      <AvatarWidget />
+      <AvatarOverlay />
     </div>
   );
 };

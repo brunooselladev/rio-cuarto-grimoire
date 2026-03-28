@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { ChevronLeft, Plus, Sparkles, Map, Save, MapPin, Upload, X, Image as ImageIcon, FileText, BookUser, LogOut, Calendar } from 'lucide-react';
+import { ChevronLeft, Plus, Sparkles, Map, Save, MapPin, Upload, X, Image as ImageIcon, FileText, BookUser, LogOut, Calendar, Brain } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
@@ -14,7 +14,10 @@ import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import CharacterSheet from "@/components/CharacterSheet.jsx";
 import HiddenWizard from '@/components/HiddenWizard.jsx';
+import AvatarWidget from '@/components/AvatarWidget.jsx';
+import AvatarOverlay from '@/components/AvatarOverlay.jsx';
 import { useEvents } from '@/hooks/useEvents.js';
+import { getWizardHeaders } from '@/lib/wizard.js';
 
 const ControlPanelPlayer = ({ user, onLogout }) => {
   const { pois, addPOI, loading, refresh } = usePOI();
@@ -32,6 +35,22 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
   });
   const { toast } = useToast();
   const { authFetch } = useAuth();
+  const [playerMemories, setPlayerMemories] = useState([]);
+  const [memoriesLoaded, setMemoriesLoaded] = useState(false);
+
+  const loadMemories = async () => {
+    if (!user?.id) return;
+    try {
+      const r = await fetch(`/api/players/${user.id}/memory`, { headers: getWizardHeaders() });
+      if (!r.ok) return;
+      const data = await r.json();
+      setPlayerMemories(Array.isArray(data.entries) ? data.entries : []);
+    } catch { /* silent */ } finally {
+      setMemoriesLoaded(true);
+    }
+  };
+
+  useEffect(() => { loadMemories(); }, [user?.id]);
 
   const userPOIs = pois.filter(poi => poi.visible || (poi.createdBy && poi.createdBy._id === user.id));
 
@@ -220,6 +239,45 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
           
           <TabsContent value="character">
             <CharacterSheet user={user} />
+            {/* Mi Memoria */}
+            <div className="mt-6">
+              <Card className="border-secondary/30 bg-card/80">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-mono text-secondary">
+                    <Brain size={18} />
+                    Mi Memoria — Lo que el Mago recuerda de vos
+                  </CardTitle>
+                  <CardDescription className="font-mono">
+                    Fragmentos que el Mago guarda sobre tu personaje y tus acciones.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {!memoriesLoaded ? (
+                    <p className="font-mono text-xs text-muted-foreground">Cargando...</p>
+                  ) : playerMemories.length === 0 ? (
+                    <p className="font-mono text-xs text-muted-foreground italic">El Mago aún no guarda recuerdos tuyos.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {playerMemories.map((entry) => (
+                        <div key={entry._id} className="flex items-start gap-3 rounded border border-secondary/20 bg-background/40 px-3 py-2">
+                          <div className="flex-1">
+                            <p className="font-mono text-xs text-foreground leading-5">{entry.content}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="font-mono text-[10px] border-secondary/40 text-secondary/70">
+                                {entry.source === 'ai_generated' ? 'Generado por IA' : 'Narrador'}
+                              </Badge>
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {new Date(entry.createdAt).toLocaleDateString('es-AR')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="eventos">
@@ -272,6 +330,8 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
       </div>
 
       <HiddenWizard location="panel" />
+      <AvatarWidget />
+      <AvatarOverlay />
     </div>
   );
 };

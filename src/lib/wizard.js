@@ -18,11 +18,20 @@ export const DEFAULT_WIZARD_STATE = {
     systemPrompt: '',
     rulesContext: '',
     lore: '',
+    puzzle: {
+      active: false,
+      description: '',
+      solvedBy: [],
+    },
   },
   notes: [],
   computed: {
     urgentMessage: {
       dismissed: false,
+    },
+    puzzle: {
+      active: false,
+      solved: false,
     },
   },
 };
@@ -45,11 +54,20 @@ export function normalizeWizardState(payload) {
       examplePhrases: Array.isArray(payload?.hidden?.examplePhrases) ? payload.hidden.examplePhrases : [],
       rulesContext: payload?.hidden?.rulesContext || '',
       lore: payload?.hidden?.lore || '',
+      puzzle: {
+        active: Boolean(payload?.hidden?.puzzle?.active),
+        description: payload?.hidden?.puzzle?.description || '',
+        solvedBy: Array.isArray(payload?.hidden?.puzzle?.solvedBy) ? payload.hidden.puzzle.solvedBy : [],
+      },
     },
     notes: Array.isArray(payload?.notes) ? payload.notes : [],
     computed: {
       urgentMessage: {
         dismissed: Boolean(payload?.computed?.urgentMessage?.dismissed),
+      },
+      puzzle: {
+        active: Boolean(payload?.computed?.puzzle?.active),
+        solved: Boolean(payload?.computed?.puzzle?.solved),
       },
     },
   };

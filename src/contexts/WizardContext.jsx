@@ -22,6 +22,7 @@ export const WizardProvider = ({ children }) => {
   const [wizardState, setWizardState] = useState(DEFAULT_WIZARD_STATE);
   const [loading, setLoading] = useState(true);
   const [viewer, setViewer] = useState(() => readStoredAuthUser());
+  const [avatarState, setAvatarState] = useState(null);
 
   const fetchWizard = async ({ showLoading = false } = {}) => {
     if (showLoading) {
@@ -53,6 +54,19 @@ export const WizardProvider = ({ children }) => {
     }
   };
 
+  const fetchAvatar = async () => {
+    const user = readStoredAuthUser();
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/avatars/${user.id}`, { headers: getWizardHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAvatarState(data);
+    } catch {
+      // silently ignore
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -61,17 +75,20 @@ export const WizardProvider = ({ children }) => {
         return;
       }
       await fetchWizard({ showLoading: true });
+      await fetchAvatar();
     };
 
     const handleAuthChange = () => {
       setViewer(readStoredAuthUser());
       fetchWizard();
+      fetchAvatar();
     };
 
     loadWizard();
 
     const intervalId = window.setInterval(() => {
       fetchWizard();
+      fetchAvatar();
     }, 5000);
 
     window.addEventListener('storage', handleAuthChange);
@@ -117,7 +134,29 @@ export const WizardProvider = ({ children }) => {
     }
 
     const data = await response.json();
+    // Return object so callers can access puzzleSolved if needed
+    return { text: String(data?.text || '').trim(), puzzleSolved: Boolean(data?.puzzleSolved) };
+  };
+
+  const triggerAvatarSpeak = async ({ message = '', history = [] } = {}) => {
+    const user = readStoredAuthUser();
+    if (!user?.id) throw new Error('Not authenticated');
+    const response = await fetch(`/api/avatars/${user.id}/speak`, {
+      method: 'POST',
+      headers: getWizardHeaders({ includeJson: true }),
+      body: JSON.stringify({ message, history }),
+    });
+    if (!response.ok) throw new Error(`Avatar speak failed (${response.status})`);
+    const data = await response.json();
     return String(data?.text || '').trim();
+  };
+
+  const dismissAvatar = async (userId) => {
+    await fetch(`/api/avatars/${userId}/dismiss`, {
+      method: 'POST',
+      headers: getWizardHeaders({ includeJson: true }),
+    });
+    await fetchAvatar();
   };
 
   return (
@@ -126,9 +165,12 @@ export const WizardProvider = ({ children }) => {
         wizardState,
         loading,
         viewer,
+        avatarState,
         refreshWizard,
         dismissUrgent,
         triggerSpeak,
+        triggerAvatarSpeak,
+        dismissAvatar,
       }}
     >
       {children}

@@ -11,6 +11,8 @@ import CharacterSheet from './models/CharacterSheet.js';
 import Event from './models/Event.js';
 import AdminNote from './models/AdminNote.js';
 import Wizard, { createWizardDefaults, WIZARD_LOCATIONS, WIZARD_MODES } from './models/Wizard.js';
+import PlayerMemory from './models/PlayerMemory.js';
+import Avatar from './models/Avatar.js';
 import { verifyPassword, hashPassword } from './lib/password.js';
 
 const app = express();
@@ -76,6 +78,12 @@ const WIZARD_UPDATE_SHAPE = {
     systemPrompt: true,
     rulesContext: true,
     lore: true,
+    puzzle: {
+      active: true,
+      description: true,
+      sello: true,
+      solvedBy: true,
+    },
   },
 };
 const WIZARD_DEFAULT_INSERT_PATHS = {
@@ -90,6 +98,10 @@ const WIZARD_DEFAULT_INSERT_PATHS = {
   'hidden.systemPrompt': '',
   'hidden.rulesContext': '',
   'hidden.lore': '',
+  'hidden.puzzle.active': false,
+  'hidden.puzzle.description': '',
+  'hidden.puzzle.sello': '',
+  'hidden.puzzle.solvedBy': [],
   'notes': [],
 };
 
@@ -173,6 +185,19 @@ function normalizeWizardSetUpdates(flatUpdates) {
         normalized[path] = arrayValue;
         break;
       }
+      case 'hidden.puzzle.active':
+        normalized[path] = Boolean(value);
+        break;
+      case 'hidden.puzzle.description':
+      case 'hidden.puzzle.sello':
+        normalized[path] = String(value || '').trim();
+        break;
+      case 'hidden.puzzle.solvedBy':
+        if (!Array.isArray(value)) {
+          throw new Error(`Invalid value for ${path}`);
+        }
+        normalized[path] = value;
+        break;
       default:
         break;
     }
@@ -215,6 +240,12 @@ function buildWizardResponse(doc, userId = null) {
       examplePhrases: source.hidden?.examplePhrases || [],
       rulesContext: source.hidden?.rulesContext || '',
       lore: source.hidden?.lore || '',
+      puzzle: {
+        active: source.hidden?.puzzle?.active || false,
+        description: source.hidden?.puzzle?.description || '',
+        solvedBy: source.hidden?.puzzle?.solvedBy || [],
+        // sello is only exposed to admins — stripped below for non-admins
+      },
     },
   };
 
@@ -222,18 +253,24 @@ function buildWizardResponse(doc, userId = null) {
     ? wizard.urgentMessage.dismissedBy.some((dismissedId) => String(dismissedId) === String(userId))
     : false;
 
+  const puzzleSolved = userId
+    ? (source.hidden?.puzzle?.solvedBy || []).some((id) => String(id) === String(userId))
+    : false;
+
   return {
     ...wizard,
     notes: source.notes || [],
     computed: {
-      urgentMessage: {
-        dismissed,
+      urgentMessage: { dismissed },
+      puzzle: {
+        active: source.hidden?.puzzle?.active || false,
+        solved: puzzleSolved,
       },
     },
   };
 }
 
-function buildWizardSystemPrompt(hiddenConfig = {}, notes = []) {
+function buildWizardSystemPrompt(hiddenConfig = {}, notes = [], playerMemory = null) {
   const styleRules = [
     'Sos El Mago Digital de Rio Cuarto Grimoire.',
     'Hablas siempre en primera persona como un mago oscuro de estetica cyberpunk noventosa.',
@@ -270,6 +307,11 @@ function buildWizardSystemPrompt(hiddenConfig = {}, notes = []) {
     promptSections.push(`Notas acumuladas del narrador (memoria de la cronica):\n${noteLines}`);
   }
 
+  if (playerMemory?.entries?.length) {
+    const memLines = playerMemory.entries.map((e) => `- ${e.content}`).join('\n');
+    promptSections.push(`Memoria especifica de este jugador:\n${memLines}`);
+  }
+
   if (hiddenConfig.topics?.length) {
     promptSections.push(`Instrucciones y comportamiento para esta sesion (del narrador):\n- ${hiddenConfig.topics.join('\n- ')}`);
   }
@@ -286,6 +328,26 @@ function buildWizardSystemPrompt(hiddenConfig = {}, notes = []) {
 
   if (hiddenConfig.mode === 'examples') {
     promptSections.push('Usa los ejemplos como referencia tonal y de cadencia, con variaciones propias.');
+  }
+
+  if (hiddenConfig.puzzle?.active && hiddenConfig.puzzle?.description?.trim()) {
+    promptSections.push(
+      `MODO PUZZLE ACTIVO:\n` +
+      `El jugador debe resolver el siguiente enigma antes de poder continuar. Tu rol es ser un juez generoso, no un obstáculo.\n\n` +
+      `ENIGMA:\n${hiddenConfig.puzzle.description.trim()}\n\n` +
+      `CRITERIO DE EVALUACION — sé flexible y generoso:\n` +
+      `- Aceptá respuestas que capturen la esencia o el espíritu correcto, aunque no sean exactas.\n` +
+      `- Aceptá sinónimos, paráfrasis, respuestas creativas o argumentos convincentes.\n` +
+      `- Si el jugador demuestra que entendió el concepto o la idea central del enigma, consideralo resuelto.\n` +
+      `- Si el jugador da una respuesta parcialmente correcta pero razonable, podés aceptarla.\n` +
+      `- Si el jugador argumenta de forma inteligente o creativa aunque no sea la respuesta "esperada", valoralo positivamente.\n` +
+      `- Solo rechazá respuestas claramente incorrectas, irrelevantes o que no intenten responder el enigma.\n` +
+      `- Después de 4 o más intentos fallidos, podés dar una pista más directa.\n\n` +
+      `FORMATO OBLIGATORIO — al final de CADA respuesta tuya, en la última línea, sin nada más:\n` +
+      `__RESUELTO__ → si la respuesta es correcta, razonable, creativa o suficientemente convincente.\n` +
+      `__PENDIENTE__ → solo si la respuesta es claramente incorrecta o no intenta resolver el enigma.\n` +
+      `Nunca omitas el token. Nunca lo pongas dentro del cuerpo del mensaje.`,
+    );
   }
 
   return promptSections.join('\n\n');
@@ -634,18 +696,46 @@ app.post('/api/wizard/dismiss', authRequired, async (req, res, next) => {
   }
 });
 
+app.post('/api/wizard/puzzle/dismiss', authRequired, async (req, res, next) => {
+  try {
+    await Wizard.findOneAndUpdate(
+      {},
+      { $addToSet: { 'hidden.puzzle.solvedBy': req.user.id } },
+      { new: true },
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
   try {
     const wizard = await getWizardDocument();
     const hiddenConfig = wizard.hidden || createWizardDefaults().hidden;
-    const systemPrompt = buildWizardSystemPrompt(hiddenConfig, wizard.notes || []);
 
     // Support chat history: array of { role: 'user'|'assistant', content: string }
     const history = Array.isArray(req.body?.history) ? req.body.history : [];
     const userMessage = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
 
+    // --- Sello check (before calling LLM, sello never leaves the server) ---
+    const puzzle = hiddenConfig.puzzle;
+    if (puzzle?.active && puzzle?.sello?.trim() && userMessage) {
+      if (userMessage.toLowerCase() === puzzle.sello.trim().toLowerCase()) {
+        await Wizard.findOneAndUpdate(
+          {},
+          { $addToSet: { 'hidden.puzzle.solvedBy': req.user.id } },
+          { new: true },
+        );
+        return res.json({ text: 'El sello es correcto. Los caminos se abren ante vos.', puzzleSolved: true });
+      }
+    }
+
+    const playerMemory = await PlayerMemory.findOne({ userId: req.user.id }).lean().catch(() => null);
+    const systemPrompt = buildWizardSystemPrompt(hiddenConfig, wizard.notes || [], playerMemory);
+
     if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
-      return res.json({ text: FALLBACK_WIZARD_SPEECH });
+      return res.json({ text: FALLBACK_WIZARD_SPEECH, puzzleSolved: false });
     }
 
     // Groq takes priority (free). Falls back to Anthropic if only that key exists.
@@ -670,9 +760,13 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
     const firstUserIdx = rawMessages.findIndex((m) => m.role === 'user');
     const trimmedMessages = firstUserIdx > 0 ? rawMessages.slice(firstUserIdx) : rawMessages;
 
+    const defaultGreeting = (puzzle?.active && puzzle?.description?.trim())
+      ? `El jugador acaba de encontrar al Mago Oculto y hay un enigma que debe resolver para continuar. Presentate brevemente en personaje y luego planteale el siguiente enigma de forma dramatica y misteriosa, usando exactamente este contenido como base: "${puzzle.description.trim()}". Deja en claro que no puede irse hasta resolverlo. No superes las 80 palabras. Termina con __PENDIENTE__ en la ultima linea.`
+      : 'El jugador acaba de encontrar al Mago Oculto. Pronuncia una unica frase breve, memorable y en personaje.';
+
     const messages = trimmedMessages.length > 0
       ? trimmedMessages
-      : [{ role: 'user', content: 'El jugador acaba de encontrar al Mago Oculto. Pronuncia una unica frase breve, memorable y en personaje.' }];
+      : [{ role: 'user', content: defaultGreeting }];
 
     try {
       console.log(`[wizard/speak] provider: ${useGroq ? 'groq' : 'anthropic'} | messages:`, JSON.stringify(messages));
@@ -687,7 +781,7 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
         };
         requestBody = JSON.stringify({
           model: 'llama-3.3-70b-versatile',
-          max_tokens: 180,
+          max_tokens: 200,
           temperature: 0.95,
           messages: [{ role: 'system', content: systemPrompt }, ...messages],
         });
@@ -699,7 +793,7 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
         };
         requestBody = JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 180,
+          max_tokens: 200,
           temperature: 0.95,
           system: systemPrompt,
           messages,
@@ -715,18 +809,38 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
       }
 
       const payload = JSON.parse(rawBody);
-      let generatedText;
+      let rawText;
 
       if (useGroq) {
-        generatedText = sanitizeWizardSpeech(payload?.choices?.[0]?.message?.content || '');
+        rawText = payload?.choices?.[0]?.message?.content || '';
       } else {
-        generatedText = sanitizeWizardSpeech(extractAnthropicText(payload));
+        rawText = extractAnthropicText(payload);
       }
 
-      return res.json({ text: generatedText || FALLBACK_WIZARD_SPEECH });
+      // --- Puzzle token extraction ---
+      let puzzleSolved = false;
+      if (puzzle?.active) {
+        const lines = rawText.split('\n');
+        const lastLine = lines[lines.length - 1]?.trim() || '';
+        if (lastLine === '__RESUELTO__') puzzleSolved = true;
+        // Strip token from rawText before sanitizing
+        rawText = rawText.replace(/__RESUELTO__|__PENDIENTE__/g, '').trim();
+      }
+
+      const generatedText = sanitizeWizardSpeech(rawText);
+
+      if (puzzle?.active && puzzleSolved) {
+        await Wizard.findOneAndUpdate(
+          {},
+          { $addToSet: { 'hidden.puzzle.solvedBy': req.user.id } },
+          { new: true },
+        );
+      }
+
+      return res.json({ text: generatedText || FALLBACK_WIZARD_SPEECH, puzzleSolved: puzzle?.active ? puzzleSolved : false });
     } catch (aiError) {
       console.error('[wizard/speak] ERROR:', aiError.message);
-      return res.json({ text: FALLBACK_WIZARD_SPEECH });
+      return res.json({ text: FALLBACK_WIZARD_SPEECH, puzzleSolved: false });
     }
   } catch (err) {
     next(err);
@@ -759,6 +873,119 @@ app.delete('/api/wizard/notes/:noteId', requireAdmin, async (req, res, next) => 
     );
     if (!wizard) return res.status(404).json({ error: 'Wizard not found' });
     res.json(buildWizardResponse(wizard, req.user.id));
+  } catch (err) { next(err); }
+});
+
+// ── Player Memory endpoints ──────────────────────────────────────────────────
+
+app.get('/api/players/:userId/memory', authRequired, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (req.user.role !== 'admin' && String(req.user.id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const mem = await PlayerMemory.findOne({ userId }).lean();
+    if (!mem) return res.json({ entries: [] });
+    if (req.user.role === 'admin') return res.json(mem);
+    return res.json({ entries: mem.entries || [] });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/players/:userId/memory', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ error: 'content is required' });
+    const mem = await PlayerMemory.findOneAndUpdate(
+      { userId },
+      { $push: { entries: { content, source: 'narrator' } } },
+      { new: true, upsert: true },
+    );
+    res.json(mem);
+  } catch (err) { next(err); }
+});
+
+app.delete('/api/players/:userId/memory/:entryId', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId, entryId } = req.params;
+    await PlayerMemory.findOneAndUpdate(
+      { userId },
+      { $pull: { entries: { _id: entryId } } },
+    );
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+app.post('/api/players/:userId/memory/generate', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const history = Array.isArray(req.body?.history) ? req.body.history : [];
+    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+      return res.status(422).json({ error: 'No AI provider configured' });
+    }
+
+    const conversationText = history
+      .map((m) => `${m.role === 'user' ? 'Jugador' : 'Mago'}: ${m.content}`)
+      .join('\n');
+
+    const useGroq = !!process.env.GROQ_API_KEY;
+    const apiUrl = useGroq
+      ? 'https://api.groq.com/openai/v1/chat/completions'
+      : 'https://api.anthropic.com/v1/messages';
+    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
+
+    const genSystemPrompt = 'Sos un asistente de narracion para un juego de rol. Analiza la siguiente conversacion entre un jugador y el Mago IA. Extrae entre 1 y 5 memorias relevantes sobre el jugador: sus motivaciones, sus acciones, sus relaciones, datos de su personaje revelados en la conversacion. Cada memoria debe ser una oracion concisa en tercera persona. Responde SOLO con un JSON valido, sin backticks, sin explicaciones, con este formato exacto: {"memories": ["texto1", "texto2"]}';
+    const genUserMsg = `CONVERSACION:\n${conversationText}`;
+
+    let rawBody;
+    if (useGroq) {
+      const r = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 512,
+          temperature: 0.4,
+          messages: [{ role: 'system', content: genSystemPrompt }, { role: 'user', content: genUserMsg }],
+        }),
+      });
+      rawBody = await r.text();
+      if (!r.ok) throw new Error(`AI error ${r.status}`);
+      const payload = JSON.parse(rawBody);
+      rawBody = payload?.choices?.[0]?.message?.content || '{}';
+    } else {
+      const r = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 512,
+          temperature: 0.4,
+          system: genSystemPrompt,
+          messages: [{ role: 'user', content: genUserMsg }],
+        }),
+      });
+      const p = await r.json();
+      rawBody = p?.content?.[0]?.text || '{}';
+    }
+
+    let memories;
+    try {
+      const parsed = JSON.parse(rawBody);
+      memories = Array.isArray(parsed?.memories) ? parsed.memories.filter(Boolean) : [];
+    } catch {
+      return res.status(422).json({ error: 'No se pudieron generar memorias', raw: rawBody });
+    }
+
+    if (memories.length) {
+      await PlayerMemory.findOneAndUpdate(
+        { userId },
+        { $push: { entries: { $each: memories.map((c) => ({ content: c, source: 'ai_generated' })) } } },
+        { upsert: true },
+      );
+    }
+
+    res.json({ generated: memories });
   } catch (err) { next(err); }
 });
 
@@ -836,6 +1063,262 @@ app.delete('/api/locations/:id', authRequired, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ── Avatar endpoints ─────────────────────────────────────────────────────────
+
+function buildAvatarSystemPrompt(avatar = {}, playerMemory = null) {
+  const parts = [];
+  parts.push(`Sos ${avatar.name || 'un Avatar'}, la manifestación espiritual del personaje de este jugador en el Mundo de las Tinieblas.`);
+  parts.push('Hablás desde una perspectiva interior, como una voz del alma del jugador. Sos sabio, críptico y empático. Nunca rompés el personaje.');
+
+  if (avatar.lore?.trim()) {
+    parts.push(`\nTU HISTORIA:\n${avatar.lore.trim()}`);
+  }
+  if (avatar.personality?.trim()) {
+    parts.push(`\nTU PERSONALIDAD:\n${avatar.personality.trim()}`);
+  }
+  if (avatar.rulesContext?.trim()) {
+    parts.push(`\nCONTEXTO DE REGLAS:\n${avatar.rulesContext.trim()}`);
+  }
+  if (avatar.characterSnapshot?.trim()) {
+    parts.push(`\nESTADO DEL PERSONAJE:\n${avatar.characterSnapshot.trim()}`);
+  }
+  if (avatar.sessionInstructions?.trim()) {
+    parts.push(`\nINSTRUCCIONES DE SESIÓN:\n${avatar.sessionInstructions.trim()}`);
+  }
+  if (playerMemory?.entries?.length) {
+    const memLines = playerMemory.entries.map((e) => `- ${e.content}`).join('\n');
+    parts.push(`\nLO QUE RECORDÁS DE ESTE JUGADOR:\n${memLines}`);
+  }
+  if (avatar.notes?.length) {
+    const noteLines = avatar.notes.map((n) => `- ${n.content}`).join('\n');
+    parts.push(`\nNOTAS DEL NARRADOR:\n${noteLines}`);
+  }
+
+  parts.push('\nRespondé siempre en español rioplatense. Máximo 3 oraciones por respuesta. Sé conciso y evocador.');
+  return parts.join('\n');
+}
+
+// GET all avatars (admin)
+app.get('/api/avatars', requireAdmin, async (_req, res, next) => {
+  try {
+    const avatars = await Avatar.find().populate('userId', 'username email').lean();
+    res.json(avatars);
+  } catch (err) { next(err); }
+});
+
+// GET avatar by userId (admin or self)
+app.get('/api/avatars/:userId', authRequired, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (req.user.role !== 'admin' && String(req.user.id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const avatar = await Avatar.findOne({ userId }).lean();
+    if (!avatar) return res.json(null);
+
+    const myId = req.user.id;
+    const dismissed = avatar.active?.dismissedBy?.some((id) => String(id) === String(myId));
+    return res.json({
+      ...avatar,
+      active: {
+        ...avatar.active,
+        dismissed,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
+// PUT update avatar config (admin)
+app.put('/api/avatars/:userId', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const allowed = ['name', 'colorPrimary', 'colorSecondary', 'personality', 'lore', 'rulesContext', 'sessionInstructions', 'characterSnapshot'];
+    const updates = {};
+    for (const key of allowed) {
+      if (key in req.body) {
+        updates[key] = typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key];
+      }
+    }
+    const avatar = await Avatar.findOneAndUpdate(
+      { userId },
+      { $set: updates },
+      { new: true, upsert: true },
+    ).lean();
+    res.json(avatar);
+  } catch (err) { next(err); }
+});
+
+// PUT activate / deactivate avatar for player (admin)
+app.put('/api/avatars/:userId/activate', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const isActive = Boolean(req.body?.isActive);
+    const message = String(req.body?.message || '').trim();
+    const avatar = await Avatar.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          'active.isActive': isActive,
+          'active.message': message,
+          'active.dismissedBy': isActive ? [] : undefined,
+        },
+      },
+      { new: true, upsert: true },
+    ).lean();
+    res.json(avatar);
+  } catch (err) { next(err); }
+});
+
+// POST dismiss avatar overlay (player)
+app.post('/api/avatars/:userId/dismiss', authRequired, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (req.user.role !== 'admin' && String(req.user.id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    await Avatar.findOneAndUpdate(
+      { userId },
+      { $addToSet: { 'active.dismissedBy': req.user.id } },
+    );
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// POST sync character snapshot (player or admin)
+app.post('/api/avatars/:userId/sync-character', authRequired, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (req.user.role !== 'admin' && String(req.user.id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const sheet = await CharacterSheet.findOne({ userId }).lean();
+    if (!sheet) return res.status(404).json({ error: 'Character sheet not found' });
+
+    // Build a text snapshot of key character fields
+    const snap = [
+      sheet.characterName ? `Nombre: ${sheet.characterName}` : null,
+      sheet.tradition ? `Tradición: ${sheet.tradition}` : null,
+      sheet.essence ? `Esencia: ${sheet.essence}` : null,
+      sheet.demeanor ? `Conducta: ${sheet.demeanor}` : null,
+      sheet.nature ? `Naturaleza: ${sheet.nature}` : null,
+      sheet.arete ? `Arete: ${sheet.arete}` : null,
+      sheet.quintessence ? `Quintaesencia: ${sheet.quintessence}` : null,
+      sheet.paradox ? `Paradoja: ${sheet.paradox}` : null,
+    ].filter(Boolean).join(', ');
+
+    const avatar = await Avatar.findOneAndUpdate(
+      { userId },
+      { $set: { characterSnapshot: snap } },
+      { new: true, upsert: true },
+    ).lean();
+    res.json(avatar);
+  } catch (err) { next(err); }
+});
+
+// POST speak to avatar (player or admin)
+app.post('/api/avatars/:userId/speak', authRequired, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (req.user.role !== 'admin' && String(req.user.id) !== userId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const avatar = await Avatar.findOne({ userId }).lean();
+    const playerMemory = await PlayerMemory.findOne({ userId }).lean().catch(() => null);
+    const systemPrompt = buildAvatarSystemPrompt(avatar || { name: 'Avatar' }, playerMemory);
+
+    const history = Array.isArray(req.body?.history) ? req.body.history : [];
+    const userMessage = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+
+    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+      return res.json({ text: 'El Avatar contempla en silencio...' });
+    }
+
+    const useGroq = !!process.env.GROQ_API_KEY;
+    const apiUrl = useGroq
+      ? 'https://api.groq.com/openai/v1/chat/completions'
+      : 'https://api.anthropic.com/v1/messages';
+    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
+
+    const rawMessages = [];
+    for (const entry of history) {
+      if ((entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string') {
+        rawMessages.push({ role: entry.role, content: entry.content });
+      }
+    }
+    if (userMessage) rawMessages.push({ role: 'user', content: userMessage });
+
+    const firstUserIdx = rawMessages.findIndex((m) => m.role === 'user');
+    const trimmedMessages = firstUserIdx > 0 ? rawMessages.slice(firstUserIdx) : rawMessages;
+    const messages = trimmedMessages.length > 0
+      ? trimmedMessages
+      : [{ role: 'user', content: 'El jugador acaba de invocar al Avatar. Pronuncia una sola frase en personaje.' }];
+
+    try {
+      let rawText;
+      if (useGroq) {
+        const r = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            max_tokens: 200,
+            temperature: 0.9,
+            messages: [{ role: 'system', content: systemPrompt }, ...messages],
+          }),
+        });
+        const p = JSON.parse(await r.text());
+        rawText = p?.choices?.[0]?.message?.content || '';
+      } else {
+        const r = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 200,
+            temperature: 0.9,
+            system: systemPrompt,
+            messages,
+          }),
+        });
+        const p = await r.json();
+        rawText = extractAnthropicText(p);
+      }
+      return res.json({ text: sanitizeWizardSpeech(rawText) || 'El Avatar contempla en silencio...' });
+    } catch (aiError) {
+      console.error('[avatar/speak] ERROR:', aiError.message);
+      return res.json({ text: 'El Avatar contempla en silencio...' });
+    }
+  } catch (err) { next(err); }
+});
+
+// POST add note to avatar (admin)
+app.post('/api/avatars/:userId/notes', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ error: 'content is required' });
+    const avatar = await Avatar.findOneAndUpdate(
+      { userId },
+      { $push: { notes: { content, createdAt: new Date() } } },
+      { new: true, upsert: true },
+    ).lean();
+    res.json(avatar);
+  } catch (err) { next(err); }
+});
+
+// DELETE note from avatar (admin)
+app.delete('/api/avatars/:userId/notes/:noteId', requireAdmin, async (req, res, next) => {
+  try {
+    const { userId, noteId } = req.params;
+    await Avatar.findOneAndUpdate(
+      { userId },
+      { $pull: { notes: { _id: noteId } } },
+    );
+    res.json({ ok: true });
+  } catch (err) { next(err); }
 });
 
 // Error handler

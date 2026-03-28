@@ -44,6 +44,7 @@ const HiddenWizard = ({ location }) => {
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [puzzleSolved, setPuzzleSolved] = useState(false);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -53,6 +54,15 @@ const HiddenWizard = ({ location }) => {
     wizardState.hidden.active &&
     wizardState.hidden.location === location;
 
+  // Sync solved state from server (e.g. if player reloads)
+  useEffect(() => {
+    if (wizardState.computed?.puzzle?.solved) {
+      setPuzzleSolved(true);
+    }
+  }, [wizardState.computed?.puzzle?.solved]);
+
+  const canClose = !wizardState.hidden.puzzle?.active || puzzleSolved;
+
   // On first activation: open modal, send greeting
   useEffect(() => {
     if (!shouldRender) {
@@ -60,6 +70,7 @@ const HiddenWizard = ({ location }) => {
       setMode('modal');
       setChatOpen(false);
       setHistory([]);
+      setPuzzleSolved(false);
       return;
     }
     if (initialized) return;
@@ -96,7 +107,19 @@ const HiddenWizard = ({ location }) => {
         message: trimmed || undefined,
         history: apiHistory,
       });
-      setHistory([...newHistory, { role: 'wizard', text: reply }]);
+      if (reply && typeof reply === 'object') {
+        // triggerSpeak returns the text string, but we need puzzleSolved — handle both
+        const textReply = typeof reply === 'string' ? reply : reply.text;
+        const solved = typeof reply === 'object' ? reply.puzzleSolved : false;
+        if (solved) {
+          setPuzzleSolved(true);
+          setHistory([...newHistory, { role: 'wizard', text: textReply }, { role: 'system', text: '✦ El enigma fue resuelto. Podés continuar.' }]);
+        } else {
+          setHistory([...newHistory, { role: 'wizard', text: textReply }]);
+        }
+      } else {
+        setHistory([...newHistory, { role: 'wizard', text: String(reply || '') }]);
+      }
     } catch {
       setHistory([...newHistory, { role: 'wizard', text: 'Las runas chisporrotean, pero hoy me guardo el veredicto.' }]);
     } finally {
@@ -117,6 +140,7 @@ const HiddenWizard = ({ location }) => {
   };
 
   const handleDismissModal = () => {
+    if (!canClose) return;
     setMode('corner');
     setChatOpen(false);
   };
@@ -181,8 +205,9 @@ const HiddenWizard = ({ location }) => {
           type="button"
           onClick={mode === 'modal' ? handleDismissModal : () => setChatOpen(false)}
           className="font-mono text-xs text-[#7b4fa0] hover:text-[#00ff9d] transition-colors"
+          style={!canClose && mode === 'modal' ? { opacity: 0.25, cursor: 'not-allowed', pointerEvents: 'none' } : {}}
         >
-          {mode === 'modal' ? 'CERRAR Y CONTINUAR →' : '✕'}
+          {mode === 'modal' ? (canClose ? 'CERRAR Y CONTINUAR →' : '🔒 RESOLVÉ EL ENIGMA') : '✕'}
         </button>
       </div>
 
@@ -190,6 +215,12 @@ const HiddenWizard = ({ location }) => {
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ minHeight: 120 }}>
         {history.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role === 'system' ? (
+              <div className="font-mono text-[11px] px-3 py-1.5 rounded w-full text-center"
+                style={{ background: 'rgba(0,255,157,0.12)', color: '#00ff9d', border: '1px solid rgba(0,255,157,0.35)' }}>
+                {msg.text}
+              </div>
+            ) : (
             <div
               className="font-mono text-xs leading-5 px-3 py-2 rounded max-w-[85%]"
               style={msg.role === 'wizard'
@@ -201,6 +232,7 @@ const HiddenWizard = ({ location }) => {
                 ? <TypingText text={msg.text} />
                 : msg.text}
             </div>
+            )}
           </div>
         ))}
         {loading && (
