@@ -114,6 +114,13 @@ const HiddenWizard = ({ location }) => {
         if (solved) {
           setPuzzleSolved(true);
           setHistory([...newHistory, { role: 'wizard', text: textReply }, { role: 'system', text: '✦ El enigma fue resuelto. Podés continuar.' }]);
+          // Auto-dismiss modal after a short delay so player can read the resolution
+          if (mode === 'modal') {
+            window.setTimeout(() => {
+              setMode('corner');
+              setChatOpen(false);
+            }, 3200);
+          }
         } else {
           setHistory([...newHistory, { role: 'wizard', text: textReply }]);
         }

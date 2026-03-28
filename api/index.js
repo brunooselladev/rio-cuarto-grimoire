@@ -818,12 +818,11 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
       }
 
       // --- Puzzle token extraction ---
+      // Search anywhere in rawText (LLMs don't always put the token on the exact last line)
       let puzzleSolved = false;
       if (puzzle?.active) {
-        const lines = rawText.split('\n');
-        const lastLine = lines[lines.length - 1]?.trim() || '';
-        if (lastLine === '__RESUELTO__') puzzleSolved = true;
-        // Strip token from rawText before sanitizing
+        if (rawText.includes('__RESUELTO__')) puzzleSolved = true;
+        // Strip tokens from rawText before sanitizing
         rawText = rawText.replace(/__RESUELTO__|__PENDIENTE__/g, '').trim();
       }
 
