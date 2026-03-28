@@ -291,11 +291,11 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs defaultValue="ubicaciones" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 gap-2 font-mono border-glow-cyan md:grid-cols-4">
-            <TabsTrigger value="ubicaciones">Ubicaciones</TabsTrigger>
-            <TabsTrigger value="jugadores">Jugadores</TabsTrigger>
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="wizard">El Mago</TabsTrigger>
+          <TabsList className="h-auto w-full grid grid-cols-2 md:grid-cols-4 gap-1 font-mono">
+            <TabsTrigger value="ubicaciones" className="font-mono text-xs py-2">Ubicaciones</TabsTrigger>
+            <TabsTrigger value="jugadores" className="font-mono text-xs py-2">Jugadores</TabsTrigger>
+            <TabsTrigger value="general" className="font-mono text-xs py-2">General</TabsTrigger>
+            <TabsTrigger value="wizard" className="font-mono text-xs py-2">El Mago</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ubicaciones">

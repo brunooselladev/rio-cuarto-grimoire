@@ -172,11 +172,11 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Tabs defaultValue="poi" className="w-full">
-          <TabsList className="w-full h-auto flex flex-col md:flex-row items-center gap-3font-mono border-glow-cyan">
-            <TabsTrigger value="poi" className="w-full"><BookUser className="mr-2" size={16}/>Mis Puntos de Interés</TabsTrigger>
-            <TabsTrigger value="character" className="w-full"><FileText className="mr-2" size={16}/>Hoja de Personaje</TabsTrigger>
-            <TabsTrigger value="eventos" className="w-full"><Calendar className="mr-2" size={16}/>Eventos</TabsTrigger>
-            <TabsTrigger value="material" className="w-full"><FileText className="mr-2" size={16}/>Material</TabsTrigger>
+          <TabsList className="h-auto w-full grid grid-cols-2 md:grid-cols-4 gap-1 font-mono">
+            <TabsTrigger value="poi" className="font-mono text-xs py-2 flex items-center gap-1"><BookUser size={13}/>Mis POIs</TabsTrigger>
+            <TabsTrigger value="character" className="font-mono text-xs py-2 flex items-center gap-1"><FileText size={13}/>Personaje</TabsTrigger>
+            <TabsTrigger value="eventos" className="font-mono text-xs py-2 flex items-center gap-1"><Calendar size={13}/>Eventos</TabsTrigger>
+            <TabsTrigger value="material" className="font-mono text-xs py-2 flex items-center gap-1"><FileText size={13}/>Material</TabsTrigger>
           </TabsList>
           
           <TabsContent value="poi">
