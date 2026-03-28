@@ -63,6 +63,16 @@ const HiddenWizard = ({ location }) => {
 
   const canClose = !wizardState.hidden.puzzle?.active || puzzleSolved;
 
+  // Lock body scroll when modal is active
+  useEffect(() => {
+    if (mode === 'modal' && shouldRender) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mode, shouldRender]);
+
   // On first activation: open modal, send greeting
   useEffect(() => {
     if (!shouldRender) {
@@ -195,7 +205,7 @@ const HiddenWizard = ({ location }) => {
       style={{
         width: mode === 'modal' ? '100%' : 280,
         maxWidth: mode === 'modal' ? 520 : 280,
-        maxHeight: mode === 'modal' ? '60vh' : 360,
+        maxHeight: mode === 'modal' ? 'calc(100vh - 160px)' : 360,
         background: 'linear-gradient(180deg, rgba(8,4,20,0.97) 0%, rgba(4,8,14,0.99) 100%)',
         border: '1px solid rgba(0,255,157,0.5)',
         boxShadow: '0 0 32px rgba(0,255,157,0.15)',
@@ -297,9 +307,12 @@ const HiddenWizard = ({ location }) => {
     return (
       <div
         className="fixed inset-0 z-[900] flex items-center justify-center p-4"
-        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)' }}
+        style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(4px)', overflow: 'hidden' }}
       >
-        <div className="flex flex-col items-center gap-6 w-full" style={{ maxWidth: 520 }}>
+        <div
+          className="flex flex-col items-center gap-4 w-full"
+          style={{ maxWidth: 520, maxHeight: '100%', overflow: 'hidden' }}
+        >
           <WizardSprite size={96} talking={loading} />
           {chatOpen && chatPanel}
         </div>
