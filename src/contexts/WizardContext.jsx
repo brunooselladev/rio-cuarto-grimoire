@@ -72,7 +72,7 @@ export const WizardProvider = ({ children }) => {
 
     const intervalId = window.setInterval(() => {
       fetchWizard();
-    }, 30000);
+    }, 5000);
 
     window.addEventListener('storage', handleAuthChange);
     window.addEventListener('auth-token-changed', handleAuthChange);
@@ -105,10 +105,11 @@ export const WizardProvider = ({ children }) => {
     return data;
   };
 
-  const triggerSpeak = async () => {
+  const triggerSpeak = async ({ message = '', history = [] } = {}) => {
     const response = await fetch('/api/wizard/speak', {
       method: 'POST',
       headers: getWizardHeaders({ includeJson: true }),
+      body: JSON.stringify({ message, history }),
     });
 
     if (!response.ok) {

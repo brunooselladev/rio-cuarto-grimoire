@@ -74,6 +74,8 @@ const WIZARD_UPDATE_SHAPE = {
     topics: true,
     examplePhrases: true,
     systemPrompt: true,
+    rulesContext: true,
+    lore: true,
   },
 };
 const WIZARD_DEFAULT_INSERT_PATHS = {
@@ -86,6 +88,9 @@ const WIZARD_DEFAULT_INSERT_PATHS = {
   'hidden.topics': [],
   'hidden.examplePhrases': [],
   'hidden.systemPrompt': '',
+  'hidden.rulesContext': '',
+  'hidden.lore': '',
+  'notes': [],
 };
 
 function flattenAllowedUpdate(input, shape, prefix = '') {
@@ -137,6 +142,8 @@ function normalizeWizardSetUpdates(flatUpdates) {
         break;
       case 'urgentMessage.text':
       case 'hidden.systemPrompt':
+      case 'hidden.rulesContext':
+      case 'hidden.lore':
         normalized[path] = String(value || '').trim();
         break;
       case 'urgentMessage.dismissedBy':
@@ -206,6 +213,8 @@ function buildWizardResponse(doc, userId = null) {
       ...(source.hidden || {}),
       topics: source.hidden?.topics || [],
       examplePhrases: source.hidden?.examplePhrases || [],
+      rulesContext: source.hidden?.rulesContext || '',
+      lore: source.hidden?.lore || '',
     },
   };
 
@@ -215,6 +224,7 @@ function buildWizardResponse(doc, userId = null) {
 
   return {
     ...wizard,
+    notes: source.notes || [],
     computed: {
       urgentMessage: {
         dismissed,
@@ -223,7 +233,7 @@ function buildWizardResponse(doc, userId = null) {
   };
 }
 
-function buildWizardSystemPrompt(hiddenConfig = {}) {
+function buildWizardSystemPrompt(hiddenConfig = {}, notes = []) {
   const styleRules = [
     'Sos El Mago Digital de Rio Cuarto Grimoire.',
     'Hablas siempre en primera persona como un mago oscuro de estetica cyberpunk noventosa.',
@@ -231,16 +241,37 @@ function buildWizardSystemPrompt(hiddenConfig = {}) {
     'Usa espanol rioplatense con un leve tono arcaico.',
     'Responde con una sola intervencion breve, sin markdown, sin listas, sin comillas y sin prefijos.',
     'No superes las 80 palabras.',
+    'Podes responder preguntas sobre las reglas del juego, la trama o el mundo si el jugador pregunta. Mantene siempre el personaje.',
   ];
 
+  // Contexto base siempre presente: reglas y trama
+  const baseContext = [];
+  if (hiddenConfig.rulesContext?.trim()) {
+    baseContext.push(`Conocimiento sobre las reglas del juego (Mago: La Ascension y variantes de esta cronica):\n${hiddenConfig.rulesContext.trim()}`);
+  }
+  if (hiddenConfig.lore?.trim()) {
+    baseContext.push(`Trama y contexto de esta cronica en particular:\n${hiddenConfig.lore.trim()}`);
+  }
+
   if (hiddenConfig.mode === 'full_prompt' && hiddenConfig.systemPrompt?.trim()) {
-    return `${hiddenConfig.systemPrompt.trim()}\n\nReglas obligatorias:\n${styleRules.join('\n')}`;
+    const sections = [`${hiddenConfig.systemPrompt.trim()}\n\nReglas obligatorias:\n${styleRules.join('\n')}`];
+    if (baseContext.length) sections.push(baseContext.join('\n\n'));
+    return sections.join('\n\n');
   }
 
   const promptSections = [...styleRules];
 
+  if (baseContext.length) {
+    promptSections.push(baseContext.join('\n\n'));
+  }
+
+  if (notes.length) {
+    const noteLines = notes.map((n) => `- ${n.content}`).join('\n');
+    promptSections.push(`Notas acumuladas del narrador (memoria de la cronica):\n${noteLines}`);
+  }
+
   if (hiddenConfig.topics?.length) {
-    promptSections.push(`Topicos e instrucciones base:\n- ${hiddenConfig.topics.join('\n- ')}`);
+    promptSections.push(`Instrucciones y comportamiento para esta sesion (del narrador):\n- ${hiddenConfig.topics.join('\n- ')}`);
   }
 
   if (hiddenConfig.mode === 'examples' && hiddenConfig.examplePhrases?.length) {
@@ -250,7 +281,7 @@ function buildWizardSystemPrompt(hiddenConfig = {}) {
   }
 
   if (hiddenConfig.mode === 'topics') {
-    promptSections.push('Improvisa libremente a partir de los topicos provistos.');
+    promptSections.push('Improvisa libremente siguiendo las instrucciones del narrador. Si el jugador pregunta algo fuera de los topicos, respondele igual manteniendote en personaje.');
   }
 
   if (hiddenConfig.mode === 'examples') {
@@ -607,54 +638,128 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
   try {
     const wizard = await getWizardDocument();
     const hiddenConfig = wizard.hidden || createWizardDefaults().hidden;
-    const systemPrompt = buildWizardSystemPrompt(hiddenConfig);
+    const systemPrompt = buildWizardSystemPrompt(hiddenConfig, wizard.notes || []);
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    // Support chat history: array of { role: 'user'|'assistant', content: string }
+    const history = Array.isArray(req.body?.history) ? req.body.history : [];
+    const userMessage = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+
+    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
       return res.json({ text: FALLBACK_WIZARD_SPEECH });
     }
 
+    // Groq takes priority (free). Falls back to Anthropic if only that key exists.
+    const useGroq = !!process.env.GROQ_API_KEY;
+    const apiUrl = useGroq
+      ? 'https://api.groq.com/openai/v1/chat/completions'
+      : 'https://api.anthropic.com/v1/messages';
+    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
+
+    // Build messages array: must start with 'user' and alternate roles
+    const rawMessages = [];
+    for (const entry of history) {
+      if ((entry.role === 'user' || entry.role === 'assistant') && typeof entry.content === 'string') {
+        rawMessages.push({ role: entry.role, content: entry.content });
+      }
+    }
+    if (userMessage) {
+      rawMessages.push({ role: 'user', content: userMessage });
+    }
+
+    // Ensure first message is always 'user' (Anthropic requirement)
+    const firstUserIdx = rawMessages.findIndex((m) => m.role === 'user');
+    const trimmedMessages = firstUserIdx > 0 ? rawMessages.slice(firstUserIdx) : rawMessages;
+
+    const messages = trimmedMessages.length > 0
+      ? trimmedMessages
+      : [{ role: 'user', content: 'El jugador acaba de encontrar al Mago Oculto. Pronuncia una unica frase breve, memorable y en personaje.' }];
+
     try {
-      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
+      console.log(`[wizard/speak] provider: ${useGroq ? 'groq' : 'anthropic'} | messages:`, JSON.stringify(messages));
+
+      let requestBody;
+      let requestHeaders;
+
+      if (useGroq) {
+        requestHeaders = {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'Authorization': `Bearer ${apiKey}`,
+        };
+        requestBody = JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          max_tokens: 180,
+          temperature: 0.95,
+          messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        });
+      } else {
+        requestHeaders = {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
           'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
+        };
+        requestBody = JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 180,
           temperature: 0.95,
           system: systemPrompt,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'El jugador acaba de encontrar al Mago Oculto. Pronuncia una unica frase breve, memorable y en personaje.',
-                },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (!anthropicResponse.ok) {
-        const errorText = await anthropicResponse.text();
-        throw new Error(`Anthropic error ${anthropicResponse.status}: ${errorText}`);
+          messages,
+        });
       }
 
-      const anthropicPayload = await anthropicResponse.json();
-      const generatedText = sanitizeWizardSpeech(extractAnthropicText(anthropicPayload));
+      const aiResponse = await fetch(apiUrl, { method: 'POST', headers: requestHeaders, body: requestBody });
+      const rawBody = await aiResponse.text();
+      console.log(`[wizard/speak] status: ${aiResponse.status} | body:`, rawBody);
+
+      if (!aiResponse.ok) {
+        throw new Error(`AI error ${aiResponse.status}: ${rawBody}`);
+      }
+
+      const payload = JSON.parse(rawBody);
+      let generatedText;
+
+      if (useGroq) {
+        generatedText = sanitizeWizardSpeech(payload?.choices?.[0]?.message?.content || '');
+      } else {
+        generatedText = sanitizeWizardSpeech(extractAnthropicText(payload));
+      }
+
       return res.json({ text: generatedText || FALLBACK_WIZARD_SPEECH });
-    } catch (anthropicError) {
-      console.error('Wizard speak fallback:', anthropicError);
+    } catch (aiError) {
+      console.error('[wizard/speak] ERROR:', aiError.message);
       return res.json({ text: FALLBACK_WIZARD_SPEECH });
     }
   } catch (err) {
     next(err);
   }
+});
+
+// Wizard Notes endpoints
+app.post('/api/wizard/notes', requireAdmin, async (req, res, next) => {
+  try {
+    const content = String(req.body?.content || '').trim();
+    if (!content) return res.status(400).json({ error: 'content is required' });
+    const wizard = await Wizard.findOneAndUpdate(
+      {},
+      {
+        $push: { notes: { content, createdAt: new Date() } },
+        $setOnInsert: buildWizardInsertDefaults(['notes']),
+      },
+      { new: true, upsert: true },
+    );
+    res.json(buildWizardResponse(wizard, req.user.id));
+  } catch (err) { next(err); }
+});
+
+app.delete('/api/wizard/notes/:noteId', requireAdmin, async (req, res, next) => {
+  try {
+    const wizard = await Wizard.findOneAndUpdate(
+      {},
+      { $pull: { notes: { _id: req.params.noteId } } },
+      { new: true },
+    );
+    if (!wizard) return res.status(404).json({ error: 'Wizard not found' });
+    res.json(buildWizardResponse(wizard, req.user.id));
+  } catch (err) { next(err); }
 });
 
 // Locations CRUD (remains in the main app)

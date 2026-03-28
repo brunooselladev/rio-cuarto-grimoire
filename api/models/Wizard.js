@@ -17,6 +17,8 @@ export function createWizardDefaults() {
       topics: [],
       examplePhrases: [],
       systemPrompt: '',
+      rulesContext: '',
+      lore: '',
     },
   };
 }
@@ -38,6 +40,8 @@ const HiddenWizardSchema = new mongoose.Schema(
     topics: [{ type: String, trim: true }],
     examplePhrases: [{ type: String, trim: true }],
     systemPrompt: { type: String, default: '', trim: true },
+    rulesContext: { type: String, default: '', trim: true },
+    lore: { type: String, default: '', trim: true },
   },
   { _id: false },
 );
@@ -46,6 +50,12 @@ const WizardSchema = new mongoose.Schema(
   {
     urgentMessage: { type: UrgentMessageSchema, default: () => ({}) },
     hidden: { type: HiddenWizardSchema, default: () => ({}) },
+    notes: [
+      {
+        content: { type: String, trim: true, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true },
 );

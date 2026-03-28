@@ -16,7 +16,10 @@ export const DEFAULT_WIZARD_STATE = {
     topics: [],
     examplePhrases: [],
     systemPrompt: '',
+    rulesContext: '',
+    lore: '',
   },
+  notes: [],
   computed: {
     urgentMessage: {
       dismissed: false,
@@ -40,7 +43,10 @@ export function normalizeWizardState(payload) {
       ...(payload?.hidden || {}),
       topics: Array.isArray(payload?.hidden?.topics) ? payload.hidden.topics : [],
       examplePhrases: Array.isArray(payload?.hidden?.examplePhrases) ? payload.hidden.examplePhrases : [],
+      rulesContext: payload?.hidden?.rulesContext || '',
+      lore: payload?.hidden?.lore || '',
     },
+    notes: Array.isArray(payload?.notes) ? payload.notes : [],
     computed: {
       urgentMessage: {
         dismissed: Boolean(payload?.computed?.urgentMessage?.dismissed),

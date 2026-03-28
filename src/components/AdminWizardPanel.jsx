@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import { Switch } from '@/components/ui/switch.tsx';
+
 import { useToast } from '@/hooks/use-toast.js';
 import { useWizard } from '@/contexts/WizardContext.jsx';
 import { getWizardHeaders, joinWizardLines, parseWizardLines } from '@/lib/wizard.js';
@@ -22,13 +22,15 @@ const buildHiddenForm = (wizardState) => ({
   topicsText: joinWizardLines(wizardState?.hidden?.topics),
   examplePhrasesText: joinWizardLines(wizardState?.hidden?.examplePhrases),
   systemPrompt: wizardState?.hidden?.systemPrompt || '',
+  rulesContext: wizardState?.hidden?.rulesContext || '',
+  lore: wizardState?.hidden?.lore || '',
 });
 
 const inputClassName =
   'w-full rounded-md border border-primary/30 bg-background/80 px-3 py-2 font-mono text-sm text-foreground';
 
 const modeCardClassName =
-  'rounded-md border px-4 py-3 transition-colors';
+  'block w-full rounded-md border px-4 py-3 transition-colors cursor-pointer';
 
 const AdminWizardPanel = () => {
   const { wizardState, refreshWizard } = useWizard();
@@ -39,28 +41,25 @@ const AdminWizardPanel = () => {
   const [hiddenDirty, setHiddenDirty] = useState(false);
   const [savingUrgent, setSavingUrgent] = useState(false);
   const [savingHidden, setSavingHidden] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState(null);
 
   useEffect(() => {
-    if (!urgentDirty) {
-      setUrgentForm(buildUrgentForm(wizardState));
-    }
+    if (!urgentDirty) setUrgentForm(buildUrgentForm(wizardState));
   }, [urgentDirty, wizardState]);
 
   useEffect(() => {
-    if (!hiddenDirty) {
-      setHiddenForm(buildHiddenForm(wizardState));
-    }
+    if (!hiddenDirty) setHiddenForm(buildHiddenForm(wizardState));
   }, [hiddenDirty, wizardState]);
 
   const handleUrgentSave = async () => {
     setSavingUrgent(true);
-
     try {
       const currentText = (wizardState?.urgentMessage?.text || '').trim();
       const nextText = urgentForm.text.trim();
       const shouldResetDismissals =
         nextText !== currentText || (urgentForm.active && !wizardState?.urgentMessage?.active);
-
       const payload = {
         urgentMessage: {
           active: urgentForm.active,
@@ -68,17 +67,12 @@ const AdminWizardPanel = () => {
           ...(shouldResetDismissals ? { dismissedBy: [] } : {}),
         },
       };
-
       const response = await fetch('/api/wizard', {
         method: 'PUT',
         headers: getWizardHeaders({ includeJson: true }),
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error('No se pudo guardar el mensaje urgente');
-      }
-
+      if (!response.ok) throw new Error('No se pudo guardar el mensaje urgente');
       await refreshWizard();
       setUrgentDirty(false);
       toast({
@@ -88,11 +82,7 @@ const AdminWizardPanel = () => {
           : 'La configuracion del mensaje urgente fue actualizada.',
       });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo guardar el mensaje urgente',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setSavingUrgent(false);
     }
@@ -100,7 +90,6 @@ const AdminWizardPanel = () => {
 
   const handleHiddenSave = async () => {
     setSavingHidden(true);
-
     try {
       const payload = {
         hidden: {
@@ -110,35 +99,67 @@ const AdminWizardPanel = () => {
           topics: parseWizardLines(hiddenForm.topicsText),
           examplePhrases: parseWizardLines(hiddenForm.examplePhrasesText),
           systemPrompt: hiddenForm.systemPrompt,
+          rulesContext: hiddenForm.rulesContext,
+          lore: hiddenForm.lore,
         },
       };
-
       const response = await fetch('/api/wizard', {
         method: 'PUT',
         headers: getWizardHeaders({ includeJson: true }),
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        throw new Error('No se pudo guardar la configuracion del mago oculto');
-      }
-
+      if (!response.ok) throw new Error('No se pudo guardar la configuracion del mago');
       await refreshWizard();
       setHiddenDirty(false);
       toast({ title: 'Mago oculto actualizado' });
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo guardar la configuracion del mago oculto',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setSavingHidden(false);
     }
   };
 
+  const handleAddNote = async () => {
+    if (!newNoteText.trim()) return;
+    setSavingNote(true);
+    try {
+      const response = await fetch('/api/wizard/notes', {
+        method: 'POST',
+        headers: getWizardHeaders({ includeJson: true }),
+        body: JSON.stringify({ content: newNoteText }),
+      });
+      if (!response.ok) throw new Error('No se pudo guardar la nota');
+      await refreshWizard();
+      setNewNoteText('');
+      toast({ title: 'Nota agregada al conocimiento del mago' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    setDeletingNoteId(noteId);
+    try {
+      const response = await fetch(`/api/wizard/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: getWizardHeaders(),
+      });
+      if (!response.ok) throw new Error('No se pudo eliminar la nota');
+      await refreshWizard();
+      toast({ title: 'Nota eliminada' });
+    } catch (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingNoteId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 mt-6">
+
+      {/* ── Mensaje Urgente ── */}
       <Card className="border-primary/40 bg-card/80">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -164,43 +185,36 @@ const AdminWizardPanel = () => {
                 Si esta encendido, los jugadores veran el overlay en cualquier ruta.
               </div>
             </div>
-            <Switch
-              checked={urgentForm.active}
-              onCheckedChange={(checked) => {
-                setUrgentForm((current) => ({ ...current, active: checked }));
-                setUrgentDirty(true);
-              }}
-            />
+            <button
+              type="button"
+              onClick={() => { setUrgentForm((c) => ({ ...c, active: !c.active })); setUrgentDirty(true); }}
+              className="font-mono text-xs px-3 py-1.5 rounded border transition-colors"
+              style={urgentForm.active
+                ? { background: '#00ff9d', color: '#000', borderColor: '#00ff9d' }
+                : { background: '#333', color: '#aaa', borderColor: '#555' }}
+            >
+              {urgentForm.active ? 'ACTIVO' : 'INACTIVO'}
+            </button>
           </div>
-
           <div className="space-y-2">
             <Label className="font-mono text-xs uppercase tracking-[0.24em]">Texto del mensaje</Label>
             <Textarea
               value={urgentForm.text}
-              onChange={(event) => {
-                setUrgentForm((current) => ({ ...current, text: event.target.value }));
-                setUrgentDirty(true);
-              }}
-              rows={6}
-              className="font-mono"
+              onChange={(e) => { setUrgentForm((c) => ({ ...c, text: e.target.value })); setUrgentDirty(true); }}
+              rows={6} className="font-mono"
               placeholder="Escribi aqui el mensaje que pronunciara el mago para toda la mesa."
             />
             <div className="font-mono text-xs text-muted-foreground">
               Si cambias el texto o reactivas el mensaje, se reinicia la lista de jugadores que ya lo habian leido.
             </div>
           </div>
-
-          <Button
-            type="button"
-            onClick={handleUrgentSave}
-            disabled={savingUrgent}
-            className="bg-primary text-primary-foreground font-mono"
-          >
+          <Button type="button" onClick={handleUrgentSave} disabled={savingUrgent} className="bg-primary text-primary-foreground font-mono">
             {savingUrgent ? 'Guardando...' : 'Guardar mensaje urgente'}
           </Button>
         </CardContent>
       </Card>
 
+      {/* ── Mago Oculto ── */}
       <Card className="border-accent/40 bg-card/80">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-accent font-mono">
@@ -219,23 +233,23 @@ const AdminWizardPanel = () => {
                 Visible solo en la seccion configurada cuando un usuario autenticado la visite.
               </div>
             </div>
-            <Switch
-              checked={hiddenForm.active}
-              onCheckedChange={(checked) => {
-                setHiddenForm((current) => ({ ...current, active: checked }));
-                setHiddenDirty(true);
-              }}
-            />
+            <button
+              type="button"
+              onClick={() => { setHiddenForm((c) => ({ ...c, active: !c.active })); setHiddenDirty(true); }}
+              className="font-mono text-xs px-3 py-1.5 rounded border transition-colors"
+              style={hiddenForm.active
+                ? { background: '#00d4ff', color: '#000', borderColor: '#00d4ff' }
+                : { background: '#333', color: '#aaa', borderColor: '#555' }}
+            >
+              {hiddenForm.active ? 'ACTIVO' : 'INACTIVO'}
+            </button>
           </div>
 
           <div className="space-y-2">
             <Label className="font-mono text-xs uppercase tracking-[0.24em]">Seccion</Label>
             <select
               value={hiddenForm.location}
-              onChange={(event) => {
-                setHiddenForm((current) => ({ ...current, location: event.target.value }));
-                setHiddenDirty(true);
-              }}
+              onChange={(e) => { setHiddenForm((c) => ({ ...c, location: e.target.value })); setHiddenDirty(true); }}
               className={inputClassName}
             >
               <option value="map">Mapa</option>
@@ -247,101 +261,38 @@ const AdminWizardPanel = () => {
 
           <div className="space-y-3">
             <Label className="font-mono text-xs uppercase tracking-[0.24em]">Modo de IA</Label>
-
-            <label
-              className={modeCardClassName}
-              style={{
-                borderColor: hiddenForm.mode === 'topics' ? 'rgba(0, 255, 157, 0.65)' : 'rgba(255, 255, 255, 0.08)',
-                background: hiddenForm.mode === 'topics' ? 'rgba(0, 255, 157, 0.06)' : 'rgba(0, 0, 0, 0.18)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="wizard-mode"
-                  value="topics"
-                  checked={hiddenForm.mode === 'topics'}
-                  onChange={(event) => {
-                    setHiddenForm((current) => ({ ...current, mode: event.target.value }));
-                    setHiddenDirty(true);
-                  }}
-                />
-                <div>
-                  <div className="font-mono text-sm text-primary">Topicos libres</div>
-                  <div className="font-mono text-xs text-muted-foreground">
-                    Le das lineamientos generales y el mago improvisa.
+            {[
+              { value: 'topics', label: 'Topicos libres', desc: 'Le das lineamientos generales y el mago improvisa.', color: 'rgba(0,255,157,0.65)', bg: 'rgba(0,255,157,0.06)', textClass: 'text-primary' },
+              { value: 'examples', label: 'Frases de ejemplo', desc: 'Mezcla topicos con ejemplos de voz para que el mago varie sobre esa base.', color: 'rgba(0,212,255,0.65)', bg: 'rgba(0,212,255,0.06)', textClass: 'text-accent' },
+              { value: 'full_prompt', label: 'Prompt completo', desc: 'Tomas control total del system prompt del mago.', color: 'rgba(123,79,160,0.75)', bg: 'rgba(123,79,160,0.08)', textClass: 'text-secondary' },
+            ].map(({ value, label, desc, color, bg, textClass }) => (
+              <label key={value} className={modeCardClassName}
+                style={{
+                  borderColor: hiddenForm.mode === value ? color : 'rgba(255,255,255,0.08)',
+                  background: hiddenForm.mode === value ? bg : 'rgba(0,0,0,0.18)',
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <input type="radio" name="wizard-mode" value={value} checked={hiddenForm.mode === value}
+                    onChange={(e) => { setHiddenForm((c) => ({ ...c, mode: e.target.value })); setHiddenDirty(true); }}
+                  />
+                  <div>
+                    <div className={`font-mono text-sm ${textClass}`}>{label}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{desc}</div>
                   </div>
                 </div>
-              </div>
-            </label>
-
-            <label
-              className={modeCardClassName}
-              style={{
-                borderColor: hiddenForm.mode === 'examples' ? 'rgba(0, 212, 255, 0.65)' : 'rgba(255, 255, 255, 0.08)',
-                background: hiddenForm.mode === 'examples' ? 'rgba(0, 212, 255, 0.06)' : 'rgba(0, 0, 0, 0.18)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="wizard-mode"
-                  value="examples"
-                  checked={hiddenForm.mode === 'examples'}
-                  onChange={(event) => {
-                    setHiddenForm((current) => ({ ...current, mode: event.target.value }));
-                    setHiddenDirty(true);
-                  }}
-                />
-                <div>
-                  <div className="font-mono text-sm text-accent">Frases de ejemplo</div>
-                  <div className="font-mono text-xs text-muted-foreground">
-                    Mezcla topicos con ejemplos de voz para que el mago varie sobre esa base.
-                  </div>
-                </div>
-              </div>
-            </label>
-
-            <label
-              className={modeCardClassName}
-              style={{
-                borderColor: hiddenForm.mode === 'full_prompt' ? 'rgba(123, 79, 160, 0.75)' : 'rgba(255, 255, 255, 0.08)',
-                background: hiddenForm.mode === 'full_prompt' ? 'rgba(123, 79, 160, 0.08)' : 'rgba(0, 0, 0, 0.18)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="wizard-mode"
-                  value="full_prompt"
-                  checked={hiddenForm.mode === 'full_prompt'}
-                  onChange={(event) => {
-                    setHiddenForm((current) => ({ ...current, mode: event.target.value }));
-                    setHiddenDirty(true);
-                  }}
-                />
-                <div>
-                  <div className="font-mono text-sm text-secondary">Prompt completo</div>
-                  <div className="font-mono text-xs text-muted-foreground">
-                    Tomas control total del system prompt del mago.
-                  </div>
-                </div>
-              </div>
-            </label>
+              </label>
+            ))}
           </div>
 
           {(hiddenForm.mode === 'topics' || hiddenForm.mode === 'examples') && (
             <div className="space-y-2">
-              <Label className="font-mono text-xs uppercase tracking-[0.24em]">Topicos e instrucciones</Label>
+              <Label className="font-mono text-xs uppercase tracking-[0.24em]">Instrucciones para esta sesion</Label>
               <Textarea
                 value={hiddenForm.topicsText}
-                onChange={(event) => {
-                  setHiddenForm((current) => ({ ...current, topicsText: event.target.value }));
-                  setHiddenDirty(true);
-                }}
-                rows={6}
-                className="font-mono"
-                placeholder="Un topico por linea. Ejemplo: menciona servidores fantasma, callejones, señales electricas..."
+                onChange={(e) => { setHiddenForm((c) => ({ ...c, topicsText: e.target.value })); setHiddenDirty(true); }}
+                rows={5} className="font-mono"
+                placeholder="Un topico por linea. Ej: ser misterioso, preguntar por que no se conecta, mencionar la trama..."
               />
             </div>
           )}
@@ -351,12 +302,8 @@ const AdminWizardPanel = () => {
               <Label className="font-mono text-xs uppercase tracking-[0.24em]">Frases de ejemplo</Label>
               <Textarea
                 value={hiddenForm.examplePhrasesText}
-                onChange={(event) => {
-                  setHiddenForm((current) => ({ ...current, examplePhrasesText: event.target.value }));
-                  setHiddenDirty(true);
-                }}
-                rows={5}
-                className="font-mono"
+                onChange={(e) => { setHiddenForm((c) => ({ ...c, examplePhrasesText: e.target.value })); setHiddenDirty(true); }}
+                rows={5} className="font-mono"
                 placeholder="Una frase por linea. El modelo las tomara como referencia tonal."
               />
             </div>
@@ -367,27 +314,117 @@ const AdminWizardPanel = () => {
               <Label className="font-mono text-xs uppercase tracking-[0.24em]">System prompt completo</Label>
               <Textarea
                 value={hiddenForm.systemPrompt}
-                onChange={(event) => {
-                  setHiddenForm((current) => ({ ...current, systemPrompt: event.target.value }));
-                  setHiddenDirty(true);
-                }}
-                rows={9}
-                className="font-mono"
+                onChange={(e) => { setHiddenForm((c) => ({ ...c, systemPrompt: e.target.value })); setHiddenDirty(true); }}
+                rows={9} className="font-mono"
                 placeholder="Defini aqui la voz completa del Mago Digital."
               />
             </div>
           )}
 
-          <Button
-            type="button"
-            onClick={handleHiddenSave}
-            disabled={savingHidden}
-            className="bg-accent text-accent-foreground font-mono"
-          >
+          {/* Reglas del juego */}
+          <div className="space-y-2 border-t border-accent/10 pt-4">
+            <Label className="font-mono text-xs uppercase tracking-[0.24em]">Reglas del juego</Label>
+            <div className="font-mono text-xs text-muted-foreground mb-1">
+              Conocimiento sobre Mago: La Ascension (M20) y variantes de esta cronica. El mago lo usa para responder preguntas de reglas.
+            </div>
+            <Textarea
+              value={hiddenForm.rulesContext}
+              onChange={(e) => { setHiddenForm((c) => ({ ...c, rulesContext: e.target.value })); setHiddenDirty(true); }}
+              rows={6} className="font-mono"
+              placeholder="Ej: En esta cronica usamos las reglas de M20. La Quintaesencia se recupera meditando en un Nodo durante una escena. El Paradox se acumula por magia vulgar frente a testigos..."
+            />
+          </div>
+
+          {/* Trama de la cronica */}
+          <div className="space-y-2">
+            <Label className="font-mono text-xs uppercase tracking-[0.24em]">Trama de la cronica</Label>
+            <div className="font-mono text-xs text-muted-foreground mb-1">
+              Contexto narrativo permanente: faccciones, lugares, NPCs, arcos de historia. El mago lo incorpora a todas sus respuestas.
+            </div>
+            <Textarea
+              value={hiddenForm.lore}
+              onChange={(e) => { setHiddenForm((c) => ({ ...c, lore: e.target.value })); setHiddenDirty(true); }}
+              rows={8} className="font-mono"
+              placeholder="Ej: La cronica transcurre en Rio Cuarto, 2026. Los personajes son Magos recien Despertados. La Technocracia controla el hospital central. El Nodo principal esta en el sotano de la Biblioteca España..."
+            />
+          </div>
+
+          <Button type="button" onClick={handleHiddenSave} disabled={savingHidden} className="bg-accent text-accent-foreground font-mono">
             {savingHidden ? 'Guardando...' : 'Guardar mago oculto'}
           </Button>
         </CardContent>
       </Card>
+
+      {/* ── Notas del Narrador ── */}
+      <Card className="border-secondary/40 bg-card/80">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-secondary font-mono">
+            <Sparkles size={18} />
+            Notas del Narrador
+          </CardTitle>
+          <CardDescription className="font-mono">
+            Memoria acumulada del mago. Cada nota se incorpora permanentemente a su conocimiento hasta que la borres.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Agregar nota */}
+          <div className="space-y-2">
+            <Label className="font-mono text-xs uppercase tracking-[0.24em]">Nueva nota</Label>
+            <Textarea
+              value={newNoteText}
+              onChange={(e) => setNewNoteText(e.target.value)}
+              rows={3} className="font-mono"
+              placeholder="Ej: Los jugadores descubrieron que el Dr. Vidal es un Technocrático. Aun no saben que trabaja para el Sindicato..."
+            />
+            <Button
+              type="button"
+              onClick={handleAddNote}
+              disabled={savingNote || !newNoteText.trim()}
+              className="font-mono bg-secondary text-secondary-foreground"
+            >
+              <Plus size={14} className="mr-2" />
+              {savingNote ? 'Guardando...' : 'Agregar nota'}
+            </Button>
+          </div>
+
+          {/* Lista de notas */}
+          {wizardState?.notes?.length > 0 && (
+            <div className="space-y-2 border-t border-secondary/10 pt-4">
+              <div className="font-mono text-xs uppercase tracking-[0.24em] text-secondary mb-3">
+                {wizardState.notes.length} nota(s) activa(s)
+              </div>
+              {[...wizardState.notes].reverse().map((note) => (
+                <div
+                  key={note._id}
+                  className="flex items-start gap-3 rounded-md border border-secondary/20 bg-background/40 px-3 py-2"
+                >
+                  <div className="flex-1">
+                    <div className="font-mono text-xs text-foreground leading-5">{note.content}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground mt-1">
+                      {new Date(note.createdAt).toLocaleString('es-AR')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteNote(note._id)}
+                    disabled={deletingNoteId === note._id}
+                    className="shrink-0 text-destructive/60 hover:text-destructive transition-colors mt-0.5"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(!wizardState?.notes || wizardState.notes.length === 0) && (
+            <div className="font-mono text-xs text-muted-foreground text-center py-4">
+              No hay notas todavia. Las notas que agregues seran parte del conocimiento permanente del mago.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 };
