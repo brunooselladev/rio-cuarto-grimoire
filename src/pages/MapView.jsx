@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { ChevronLeft, Info, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import POIModal from '@/components/POIModal.jsx';
+import HiddenWizard from '@/components/HiddenWizard.jsx';
 import { usePOI } from '@/contexts/POIContext.jsx';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import 'leaflet/dist/leaflet.css';
@@ -237,6 +238,7 @@ const MapView = () => {
         <div>UBICACIONES: {poisToRender.length}</div>
         <div className="animate-pulse-glow">█</div>
       </div>
+      <HiddenWizard location="map" />
     </div>
   );
 };

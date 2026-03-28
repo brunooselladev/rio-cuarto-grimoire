@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext.jsx';
 import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import PlayerCard from '@/components/PlayerCard.jsx';
+import AdminWizardPanel from '@/components/AdminWizardPanel.jsx';
+import HiddenWizard from '@/components/HiddenWizard.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import { useEvents } from '@/hooks/useEvents.js';
 
@@ -289,10 +291,11 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs defaultValue="ubicaciones" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 font-mono border-glow-cyan">
+          <TabsList className="grid w-full grid-cols-2 gap-2 font-mono border-glow-cyan md:grid-cols-4">
             <TabsTrigger value="ubicaciones">Ubicaciones</TabsTrigger>
             <TabsTrigger value="jugadores">Jugadores</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="wizard">El Mago</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ubicaciones">
@@ -579,10 +582,17 @@ const ControlPanelAdmin = ({ user, onLogout }) => {
                   </div>
                 </CardContent>
               </Card>
+              <HiddenWizard location="events" />
             </div>
+          </TabsContent>
+
+          <TabsContent value="wizard">
+            <AdminWizardPanel />
           </TabsContent>
         </Tabs>
       </div>
+
+      <HiddenWizard location="panel" />
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext.jsx';
 import { Save, Download, Sparkles, Trash2 } from 'lucide-react';
 import QuintessenceParadoxCard from './QuintessenceParadoxCard.jsx';
+import HiddenWizard from '@/components/HiddenWizard.jsx';
 
 
 import { generateCharacterSheetPdf } from '@/lib/pdfService.js';
@@ -151,24 +152,25 @@ const CharacterSheet = ({ user }) => {
   }
 
   return (
-    <Card className="bg-card/80 backdrop-blur-sm border-primary/20 border-glow-green font-mono">
-      <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between">
-        <div>
-          <CardTitle className="text-2xl text-primary glow-text-green">Hoja de Personaje</CardTitle>
-          <CardDescription className="font-mono">Edita y gestiona los detalles de tu personaje.</CardDescription>
+    <>
+      <Card className="bg-card/80 backdrop-blur-sm border-primary/20 border-glow-green font-mono">
+        <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between">
+          <div>
+            <CardTitle className="text-2xl text-primary glow-text-green">Hoja de Personaje</CardTitle>
+            <CardDescription className="font-mono">Edita y gestiona los detalles de tu personaje.</CardDescription>
+          </div>
+          <div className="flex md:flex-row flex-col w-full md:w-auto gap-2 mt-4 sm:mt-0">
+            <Button onClick={handleSave} className="hidden md:inline-flex"><Save className="mr-2" size={16} /> Guardar Cambios</Button>
+            <Button onClick={handleDownloadPdf} variant="outline" disabled>
+              {isDownloading ? 'Generando...' : <><Download className="mr-2" size={16} /> Descargar PDF</>}
+            </Button>
+          </div>
+        </CardHeader>
+        {/* Mobile-only sticky save button */}
+        <div className="md:hidden sticky top-40 z-10 pr-6 pl-6 bg-card/95 backdrop-blur-sm">
+          <Button onClick={handleSave} className="w-full"><Save className="mr-2" size={16} /> Guardar Cambios</Button>
         </div>
-        <div className="flex md:flex-row flex-col w-full md:w-auto gap-2 mt-4 sm:mt-0">
-          <Button onClick={handleSave} className="hidden md:inline-flex"><Save className="mr-2" size={16} /> Guardar Cambios</Button>
-          <Button onClick={handleDownloadPdf} variant="outline" disabled>
-            {isDownloading ? 'Generando...' : <><Download className="mr-2" size={16} /> Descargar PDF</>}
-          </Button>
-        </div>
-      </CardHeader>
-      {/* Mobile-only sticky save button */}
-      <div className="md:hidden sticky top-40 z-10 pr-6 pl-6 bg-card/95 backdrop-blur-sm">
-        <Button onClick={handleSave} className="w-full"><Save className="mr-2" size={16} /> Guardar Cambios</Button>
-      </div>
-      <CardContent className="space-y-6 p-6">
+        <CardContent className="space-y-6 p-6">
         {/* Basic Info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
@@ -419,8 +421,10 @@ const CharacterSheet = ({ user }) => {
             </Card>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+      <HiddenWizard location="character" />
+    </>
   );
 };
 

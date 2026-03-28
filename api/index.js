@@ -10,6 +10,7 @@ import User from './models/User.js';
 import CharacterSheet from './models/CharacterSheet.js';
 import Event from './models/Event.js';
 import AdminNote from './models/AdminNote.js';
+import Wizard, { createWizardDefaults, WIZARD_LOCATIONS, WIZARD_MODES } from './models/Wizard.js';
 import { verifyPassword, hashPassword } from './lib/password.js';
 
 const app = express();
@@ -29,6 +30,264 @@ function authRequired(req, res, next) {
   } catch (err) {
     return res.status(401).json({ error: 'Invalid token' });
   }
+}
+
+function authOptional(req, _res, next) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-change-me');
+    req.user = payload;
+  } catch (_err) {
+    req.user = null;
+  }
+
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  authRequired(req, res, () => {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    return next();
+  });
+}
+
+const FALLBACK_WIZARD_SPEECH = 'Los caminos del conocimiento est\u00e1n... temporalmente cerrados.';
+const WIZARD_UPDATE_SHAPE = {
+  urgentMessage: {
+    active: true,
+    text: true,
+    dismissedBy: true,
+  },
+  hidden: {
+    active: true,
+    location: true,
+    mode: true,
+    topics: true,
+    examplePhrases: true,
+    systemPrompt: true,
+  },
+};
+const WIZARD_DEFAULT_INSERT_PATHS = {
+  'urgentMessage.active': false,
+  'urgentMessage.text': '',
+  'urgentMessage.dismissedBy': [],
+  'hidden.active': false,
+  'hidden.location': 'map',
+  'hidden.mode': 'topics',
+  'hidden.topics': [],
+  'hidden.examplePhrases': [],
+  'hidden.systemPrompt': '',
+};
+
+function flattenAllowedUpdate(input, shape, prefix = '') {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return {};
+  }
+
+  const updates = {};
+
+  for (const [key, nestedShape] of Object.entries(shape)) {
+    if (!(key in input)) {
+      continue;
+    }
+
+    const value = input[key];
+    const path = prefix ? `${prefix}.${key}` : key;
+
+    if (nestedShape === true) {
+      updates[path] = value;
+      continue;
+    }
+
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      Object.assign(updates, flattenAllowedUpdate(value, nestedShape, path));
+    }
+  }
+
+  return updates;
+}
+
+function normalizeStringArray(value) {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  return value
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
+
+function normalizeWizardSetUpdates(flatUpdates) {
+  const normalized = {};
+
+  for (const [path, value] of Object.entries(flatUpdates)) {
+    switch (path) {
+      case 'urgentMessage.active':
+      case 'hidden.active':
+        normalized[path] = Boolean(value);
+        break;
+      case 'urgentMessage.text':
+      case 'hidden.systemPrompt':
+        normalized[path] = String(value || '').trim();
+        break;
+      case 'urgentMessage.dismissedBy':
+        if (!Array.isArray(value)) {
+          throw new Error(`Invalid value for ${path}`);
+        }
+        normalized[path] = value;
+        break;
+      case 'hidden.location':
+        if (!WIZARD_LOCATIONS.includes(value)) {
+          throw new Error('Invalid hidden.location');
+        }
+        normalized[path] = value;
+        break;
+      case 'hidden.mode':
+        if (!WIZARD_MODES.includes(value)) {
+          throw new Error('Invalid hidden.mode');
+        }
+        normalized[path] = value;
+        break;
+      case 'hidden.topics':
+      case 'hidden.examplePhrases': {
+        const arrayValue = normalizeStringArray(value);
+        if (!arrayValue) {
+          throw new Error(`Invalid value for ${path}`);
+        }
+        normalized[path] = arrayValue;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  return normalized;
+}
+
+function buildWizardInsertDefaults(skipPaths = []) {
+  const skipSet = new Set(skipPaths);
+
+  return Object.fromEntries(
+    Object.entries(WIZARD_DEFAULT_INSERT_PATHS).filter(([path]) => !skipSet.has(path)),
+  );
+}
+
+async function getWizardDocument() {
+  return Wizard.findOneAndUpdate(
+    {},
+    { $setOnInsert: buildWizardInsertDefaults() },
+    { new: true, upsert: true },
+  );
+}
+
+function buildWizardResponse(doc, userId = null) {
+  const source = doc?.toObject ? doc.toObject() : (doc || {});
+  const defaults = createWizardDefaults();
+
+  const wizard = {
+    ...source,
+    urgentMessage: {
+      ...defaults.urgentMessage,
+      ...(source.urgentMessage || {}),
+      dismissedBy: source.urgentMessage?.dismissedBy || [],
+    },
+    hidden: {
+      ...defaults.hidden,
+      ...(source.hidden || {}),
+      topics: source.hidden?.topics || [],
+      examplePhrases: source.hidden?.examplePhrases || [],
+    },
+  };
+
+  const dismissed = userId
+    ? wizard.urgentMessage.dismissedBy.some((dismissedId) => String(dismissedId) === String(userId))
+    : false;
+
+  return {
+    ...wizard,
+    computed: {
+      urgentMessage: {
+        dismissed,
+      },
+    },
+  };
+}
+
+function buildWizardSystemPrompt(hiddenConfig = {}) {
+  const styleRules = [
+    'Sos El Mago Digital de Rio Cuarto Grimoire.',
+    'Hablas siempre en primera persona como un mago oscuro de estetica cyberpunk noventosa.',
+    'Tu voz es criptica, arcana, ominosa y elegante.',
+    'Usa espanol rioplatense con un leve tono arcaico.',
+    'Responde con una sola intervencion breve, sin markdown, sin listas, sin comillas y sin prefijos.',
+    'No superes las 80 palabras.',
+  ];
+
+  if (hiddenConfig.mode === 'full_prompt' && hiddenConfig.systemPrompt?.trim()) {
+    return `${hiddenConfig.systemPrompt.trim()}\n\nReglas obligatorias:\n${styleRules.join('\n')}`;
+  }
+
+  const promptSections = [...styleRules];
+
+  if (hiddenConfig.topics?.length) {
+    promptSections.push(`Topicos e instrucciones base:\n- ${hiddenConfig.topics.join('\n- ')}`);
+  }
+
+  if (hiddenConfig.mode === 'examples' && hiddenConfig.examplePhrases?.length) {
+    promptSections.push(
+      `Frases de ejemplo para imitar y variar sin copiarlas literalmente:\n- ${hiddenConfig.examplePhrases.join('\n- ')}`,
+    );
+  }
+
+  if (hiddenConfig.mode === 'topics') {
+    promptSections.push('Improvisa libremente a partir de los topicos provistos.');
+  }
+
+  if (hiddenConfig.mode === 'examples') {
+    promptSections.push('Usa los ejemplos como referencia tonal y de cadencia, con variaciones propias.');
+  }
+
+  return promptSections.join('\n\n');
+}
+
+function sanitizeWizardSpeech(text) {
+  const cleaned = String(text || '')
+    .replace(/\s+/g, ' ')
+    .replace(/^["'“”]+|["'“”]+$/g, '')
+    .trim();
+
+  if (!cleaned) {
+    return FALLBACK_WIZARD_SPEECH;
+  }
+
+  const words = cleaned.split(' ');
+  if (words.length <= 80) {
+    return cleaned;
+  }
+
+  return `${words.slice(0, 80).join(' ')}...`;
+}
+
+function extractAnthropicText(payload) {
+  if (!Array.isArray(payload?.content)) {
+    return '';
+  }
+
+  return payload.content
+    .filter((block) => block?.type === 'text' && block.text)
+    .map((block) => block.text)
+    .join(' ')
+    .trim();
 }
 
 // Auth Router
@@ -290,6 +549,113 @@ app.use('/api/auth', authRouter);
 app.use('/api/character', characterRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/notes', notesRouter);
+
+app.get('/api/wizard', authOptional, async (req, res, next) => {
+  try {
+    const wizard = await getWizardDocument();
+    res.json(buildWizardResponse(wizard, req.user?.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.put('/api/wizard', requireAdmin, async (req, res, next) => {
+  try {
+    const flatUpdates = flattenAllowedUpdate(req.body || {}, WIZARD_UPDATE_SHAPE);
+    const normalizedUpdates = normalizeWizardSetUpdates(flatUpdates);
+
+    if (Object.keys(normalizedUpdates).length === 0) {
+      return res.status(400).json({ error: 'No valid wizard fields provided' });
+    }
+
+    const wizard = await Wizard.findOneAndUpdate(
+      {},
+      {
+        $setOnInsert: buildWizardInsertDefaults(Object.keys(normalizedUpdates)),
+        $set: normalizedUpdates,
+      },
+      { new: true, upsert: true },
+    );
+
+    res.json(buildWizardResponse(wizard, req.user?.id));
+  } catch (err) {
+    if (err.message?.startsWith('Invalid') || err.message?.includes('wizard fields')) {
+      return res.status(400).json({ error: err.message });
+    }
+    next(err);
+  }
+});
+
+app.post('/api/wizard/dismiss', authRequired, async (req, res, next) => {
+  try {
+    const wizard = await Wizard.findOneAndUpdate(
+      {},
+      {
+        $setOnInsert: buildWizardInsertDefaults(['urgentMessage.dismissedBy']),
+        $addToSet: { 'urgentMessage.dismissedBy': req.user.id },
+      },
+      { new: true, upsert: true },
+    );
+
+    res.json(buildWizardResponse(wizard, req.user.id));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
+  try {
+    const wizard = await getWizardDocument();
+    const hiddenConfig = wizard.hidden || createWizardDefaults().hidden;
+    const systemPrompt = buildWizardSystemPrompt(hiddenConfig);
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.json({ text: FALLBACK_WIZARD_SPEECH });
+    }
+
+    try {
+      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 180,
+          temperature: 0.95,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'El jugador acaba de encontrar al Mago Oculto. Pronuncia una unica frase breve, memorable y en personaje.',
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (!anthropicResponse.ok) {
+        const errorText = await anthropicResponse.text();
+        throw new Error(`Anthropic error ${anthropicResponse.status}: ${errorText}`);
+      }
+
+      const anthropicPayload = await anthropicResponse.json();
+      const generatedText = sanitizeWizardSpeech(extractAnthropicText(anthropicPayload));
+      return res.json({ text: generatedText || FALLBACK_WIZARD_SPEECH });
+    } catch (anthropicError) {
+      console.error('Wizard speak fallback:', anthropicError);
+      return res.json({ text: FALLBACK_WIZARD_SPEECH });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Locations CRUD (remains in the main app)
 app.get('/api/locations', async (_req, res, next) => {

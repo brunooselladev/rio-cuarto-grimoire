@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { jwtDecode } from 'jwt-decode';
+import { emitAuthTokenChanged } from '@/lib/wizard.js';
 
 const AuthContext = createContext();
 
@@ -19,6 +20,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(() => {
     localStorage.removeItem('authToken');
+    emitAuthTokenChanged();
     setToken(null);
     setUser(null);
   }, []);
@@ -87,6 +89,7 @@ export const AuthProvider = ({ children }) => {
     }
     const data = await res.json();
     localStorage.setItem('authToken', data.token);
+    emitAuthTokenChanged();
     setToken(data.token);
     // User will be set by the useEffect above after verify
   }, []);

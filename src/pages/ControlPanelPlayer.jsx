@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast.js';
 import GooglePlacesInput from '@/components/GooglePlacesInput.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx";
 import CharacterSheet from "@/components/CharacterSheet.jsx";
+import HiddenWizard from '@/components/HiddenWizard.jsx';
 import { useEvents } from '@/hooks/useEvents.js';
 
 const ControlPanelPlayer = ({ user, onLogout }) => {
@@ -245,6 +246,8 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
                   ))}
                 </div>
               )}
+
+              <HiddenWizard location="events" />
             </div>
           </TabsContent>
           
@@ -267,6 +270,8 @@ const ControlPanelPlayer = ({ user, onLogout }) => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <HiddenWizard location="panel" />
     </div>
   );
 };
