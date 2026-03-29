@@ -14,6 +14,9 @@
  *   OPENROUTER_DEEPSEEK_MODEL (solo ID de modelo en OpenRouter, p.ej. deepseek/deepseek-chat:free — NO es una API key),
  *   CEREBRAS_MODEL
  *
+ *   GROQ_SCOUT_MODEL  override para groq_scout (default: meta-llama/llama-4-scout-17b-16e-instruct)
+ *                     30 RPM · 1K RPD · 30K TPM · 500K TPD — bucket independiente de groq/groq_fast
+ *
  *   LLM_PROVIDER_ORDER   comma-separated, e.g. "gemini,groq,groq_fast,openrouter,openrouter_alt"
  *   LLM_TIMEOUT_MS       default 12000
  *   LLM_RETRIES          default 1  (attempts per provider before moving on)
@@ -39,6 +42,18 @@ const PROVIDER_DEFINITIONS = {
     apiKey: () => process.env.GROQ_API_KEY,
     defaultModel: 'llama-3.3-70b-versatile',
     modelEnvKey: 'GROQ_MODEL',
+    usesGroqKeyList: true,
+  },
+  /**
+   * Llama-4-Scout en Groq: mayor TPM (30K) que el 70B (12K) — bucket independiente.
+   * Útil cuando el 70B alcanza el límite de tokens por minuto.
+   */
+  groq_scout: {
+    name: 'groq_scout',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    apiKey: () => process.env.GROQ_API_KEY,
+    defaultModel: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    modelEnvKey: 'GROQ_SCOUT_MODEL',
     usesGroqKeyList: true,
   },
   /** Mismo key que groq: modelo más chico si el 70B falla o está saturado */
@@ -137,6 +152,7 @@ const PROVIDER_DEFINITIONS = {
 
 const DEFAULT_ORDER = [
   'groq',
+  'groq_scout',
   'groq_fast',
   'anthropic',
   'openai',
