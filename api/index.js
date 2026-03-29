@@ -14,6 +14,8 @@ import Wizard, { createWizardDefaults, WIZARD_LOCATIONS, WIZARD_MODES } from './
 import PlayerMemory from './models/PlayerMemory.js';
 import Avatar from './models/Avatar.js';
 import { verifyPassword, hashPassword } from './lib/password.js';
+import { generateReply } from './lib/ai/llmRouter.js';
+import { getEnabledProviders, getLLMStartupSummary } from './lib/ai/providerConfig.js';
 
 const app = express();
 app.use(cors());
@@ -63,6 +65,19 @@ function requireAdmin(req, res, next) {
 }
 
 const FALLBACK_WIZARD_SPEECH = 'Los caminos del conocimiento est\u00e1n... temporalmente cerrados.';
+
+/**
+ * Shim de compatibilidad — delega al llmRouter centralizado.
+ * Lanza si todos los proveedores fallan (comportamiento previo).
+ */
+async function callAIWithFallback({ systemPrompt, messages, maxTokens = 200, temperature = 0.95 }) {
+  const { text, meta } = await generateReply({ systemPrompt, messages, maxTokens, temperature });
+  if (text === null) {
+    throw new Error(`All AI providers failed (attempted: ${(meta?.attempted || []).join(', ')})`);
+  }
+  return text;
+}
+
 const WIZARD_UPDATE_SHAPE = {
   urgentMessage: {
     active: true,
@@ -760,16 +775,10 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
     const events = await Event.find().sort({ createdAt: -1 }).limit(20).lean().catch(() => []);
     const systemPrompt = buildWizardSystemPrompt(hiddenConfig, wizard.notes || [], playerMemory, events);
 
-    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    const noProviders = getEnabledProviders().length === 0;
+    if (noProviders) {
       return res.json({ text: FALLBACK_WIZARD_SPEECH, puzzleSolved: false });
     }
-
-    // Groq takes priority (free). Falls back to Anthropic if only that key exists.
-    const useGroq = !!process.env.GROQ_API_KEY;
-    const apiUrl = useGroq
-      ? 'https://api.groq.com/openai/v1/chat/completions'
-      : 'https://api.anthropic.com/v1/messages';
-    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
 
     // Build messages array: must start with 'user' and alternate roles
     const rawMessages = [];
@@ -795,53 +804,9 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
       : [{ role: 'user', content: defaultGreeting }];
 
     try {
-      console.log(`[wizard/speak] provider: ${useGroq ? 'groq' : 'anthropic'} | messages:`, JSON.stringify(messages));
+      console.log(`[wizard/speak] messages:`, JSON.stringify(messages));
 
-      let requestBody;
-      let requestHeaders;
-
-      if (useGroq) {
-        requestHeaders = {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        };
-        requestBody = JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 200,
-          temperature: 0.95,
-          messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        });
-      } else {
-        requestHeaders = {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        };
-        requestBody = JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 200,
-          temperature: 0.95,
-          system: systemPrompt,
-          messages,
-        });
-      }
-
-      const aiResponse = await fetch(apiUrl, { method: 'POST', headers: requestHeaders, body: requestBody });
-      const rawBody = await aiResponse.text();
-      console.log(`[wizard/speak] status: ${aiResponse.status} | body:`, rawBody);
-
-      if (!aiResponse.ok) {
-        throw new Error(`AI error ${aiResponse.status}: ${rawBody}`);
-      }
-
-      const payload = JSON.parse(rawBody);
-      let rawText;
-
-      if (useGroq) {
-        rawText = payload?.choices?.[0]?.message?.content || '';
-      } else {
-        rawText = extractAnthropicText(payload);
-      }
+      let rawText = await callAIWithFallback({ systemPrompt, messages, maxTokens: 200, temperature: 0.95 });
 
       // --- Puzzle token extraction ---
       // Search anywhere in rawText (LLMs don't always put the token on the exact last line)
@@ -864,7 +829,7 @@ app.post('/api/wizard/speak', authRequired, async (req, res, next) => {
 
       return res.json({ text: generatedText || FALLBACK_WIZARD_SPEECH, puzzleSolved: puzzle?.active ? puzzleSolved : false });
     } catch (aiError) {
-      console.error('[wizard/speak] ERROR:', aiError.message);
+      console.error('[wizard/speak] all providers failed:', aiError.message);
       return res.json({ text: FALLBACK_WIZARD_SPEECH, puzzleSolved: false });
     }
   } catch (err) {
@@ -950,15 +915,10 @@ app.post('/api/wizard/narrator-speak', requireAdmin, async (req, res, next) => {
 
     const narratorSystemPrompt = promptSections.join('\n\n');
 
-    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    const noProvidersNarrator = getEnabledProviders().length === 0;
+    if (noProvidersNarrator) {
       return res.json({ text: FALLBACK_WIZARD_SPEECH, noteSaved: false });
     }
-
-    const useGroq = !!process.env.GROQ_API_KEY;
-    const apiUrl = useGroq
-      ? 'https://api.groq.com/openai/v1/chat/completions'
-      : 'https://api.anthropic.com/v1/messages';
-    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
 
     const rawMessages = [];
     for (const entry of history) {
@@ -975,41 +935,9 @@ app.post('/api/wizard/narrator-speak', requireAdmin, async (req, res, next) => {
       : [{ role: 'user', content: 'El Invocador estableció contacto. Salúdalo brevemente en personaje.' }];
 
     try {
-      console.log(`[wizard/narrator-speak] provider: ${useGroq ? 'groq' : 'anthropic'} | messages:`, JSON.stringify(messages));
+      console.log('[wizard/narrator-speak] messages:', JSON.stringify(messages));
 
-      let requestBody;
-      let requestHeaders;
-
-      if (useGroq) {
-        requestHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
-        requestBody = JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 220,
-          temperature: 0.9,
-          messages: [{ role: 'system', content: narratorSystemPrompt }, ...messages],
-        });
-      } else {
-        requestHeaders = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
-        requestBody = JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 220,
-          temperature: 0.9,
-          system: narratorSystemPrompt,
-          messages,
-        });
-      }
-
-      const aiResponse = await fetch(apiUrl, { method: 'POST', headers: requestHeaders, body: requestBody });
-      const rawBody = await aiResponse.text();
-      console.log(`[wizard/narrator-speak] status: ${aiResponse.status}`);
-
-      if (!aiResponse.ok) throw new Error(`AI error ${aiResponse.status}: ${rawBody}`);
-
-      const payload = JSON.parse(rawBody);
-      let rawText = useGroq
-        ? (payload?.choices?.[0]?.message?.content || '')
-        : extractAnthropicText(payload);
-
+      const rawText = await callAIWithFallback({ systemPrompt: narratorSystemPrompt, messages, maxTokens: 220, temperature: 0.9 });
       const generatedText = sanitizeWizardSpeech(rawText);
 
       // Auto-save the narrator's message as a wizard note if requested
@@ -1025,7 +953,7 @@ app.post('/api/wizard/narrator-speak', requireAdmin, async (req, res, next) => {
 
       return res.json({ text: generatedText || FALLBACK_WIZARD_SPEECH, noteSaved });
     } catch (aiError) {
-      console.error('[wizard/narrator-speak] ERROR:', aiError.message);
+      console.error('[wizard/narrator-speak] all providers failed:', aiError.message);
       return res.json({ text: FALLBACK_WIZARD_SPEECH, noteSaved: false });
     }
   } catch (err) {
@@ -1077,7 +1005,7 @@ app.post('/api/players/:userId/memory/generate', requireAdmin, async (req, res, 
   try {
     const { userId } = req.params;
     const history = Array.isArray(req.body?.history) ? req.body.history : [];
-    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    if (getEnabledProviders().length === 0) {
       return res.status(422).json({ error: 'No AI provider configured' });
     }
 
@@ -1085,46 +1013,15 @@ app.post('/api/players/:userId/memory/generate', requireAdmin, async (req, res, 
       .map((m) => `${m.role === 'user' ? 'Jugador' : 'Mago'}: ${m.content}`)
       .join('\n');
 
-    const useGroq = !!process.env.GROQ_API_KEY;
-    const apiUrl = useGroq
-      ? 'https://api.groq.com/openai/v1/chat/completions'
-      : 'https://api.anthropic.com/v1/messages';
-    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
-
     const genSystemPrompt = 'Sos un asistente de narracion para un juego de rol. Analiza la siguiente conversacion entre un jugador y el Mago IA. Extrae entre 1 y 5 memorias relevantes sobre el jugador: sus motivaciones, sus acciones, sus relaciones, datos de su personaje revelados en la conversacion. Cada memoria debe ser una oracion concisa en tercera persona. Responde SOLO con un JSON valido, sin backticks, sin explicaciones, con este formato exacto: {"memories": ["texto1", "texto2"]}';
     const genUserMsg = `CONVERSACION:\n${conversationText}`;
 
-    let rawBody;
-    if (useGroq) {
-      const r = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          max_tokens: 512,
-          temperature: 0.4,
-          messages: [{ role: 'system', content: genSystemPrompt }, { role: 'user', content: genUserMsg }],
-        }),
-      });
-      rawBody = await r.text();
-      if (!r.ok) throw new Error(`AI error ${r.status}`);
-      const payload = JSON.parse(rawBody);
-      rawBody = payload?.choices?.[0]?.message?.content || '{}';
-    } else {
-      const r = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 512,
-          temperature: 0.4,
-          system: genSystemPrompt,
-          messages: [{ role: 'user', content: genUserMsg }],
-        }),
-      });
-      const p = await r.json();
-      rawBody = p?.content?.[0]?.text || '{}';
-    }
+    const rawBody = await callAIWithFallback({
+      systemPrompt: genSystemPrompt,
+      messages: [{ role: 'user', content: genUserMsg }],
+      maxTokens: 512,
+      temperature: 0.4,
+    });
 
     let memories;
     try {
@@ -1389,15 +1286,9 @@ app.post('/api/avatars/:userId/speak', authRequired, async (req, res, next) => {
     const history = Array.isArray(req.body?.history) ? req.body.history : [];
     const userMessage = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
 
-    if (!process.env.GROQ_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    if (getEnabledProviders().length === 0) {
       return res.json({ text: 'El Avatar contempla en silencio...' });
     }
-
-    const useGroq = !!process.env.GROQ_API_KEY;
-    const apiUrl = useGroq
-      ? 'https://api.groq.com/openai/v1/chat/completions'
-      : 'https://api.anthropic.com/v1/messages';
-    const apiKey = useGroq ? process.env.GROQ_API_KEY : process.env.ANTHROPIC_API_KEY;
 
     const rawMessages = [];
     for (const entry of history) {
@@ -1414,38 +1305,10 @@ app.post('/api/avatars/:userId/speak', authRequired, async (req, res, next) => {
       : [{ role: 'user', content: 'El jugador acaba de invocar al Avatar. Pronuncia una sola frase en personaje.' }];
 
     try {
-      let rawText;
-      if (useGroq) {
-        const r = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            max_tokens: 200,
-            temperature: 0.9,
-            messages: [{ role: 'system', content: systemPrompt }, ...messages],
-          }),
-        });
-        const p = JSON.parse(await r.text());
-        rawText = p?.choices?.[0]?.message?.content || '';
-      } else {
-        const r = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 200,
-            temperature: 0.9,
-            system: systemPrompt,
-            messages,
-          }),
-        });
-        const p = await r.json();
-        rawText = extractAnthropicText(p);
-      }
+      const rawText = await callAIWithFallback({ systemPrompt, messages, maxTokens: 200, temperature: 0.9 });
       return res.json({ text: sanitizeWizardSpeech(rawText) || 'El Avatar contempla en silencio...' });
     } catch (aiError) {
-      console.error('[avatar/speak] ERROR:', aiError.message);
+      console.error('[avatar/speak] all providers failed:', aiError.message);
       return res.json({ text: 'El Avatar contempla en silencio...' });
     }
   } catch (err) { next(err); }
@@ -1489,6 +1352,8 @@ if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3001;
   app.listen(PORT, () => {
     console.log(`✅ API corriendo en http://localhost:${PORT}`);
+    const llm = getLLMStartupSummary();
+    console[llm.ok ? 'log' : 'warn'](llm.line);
   });
 }
 
