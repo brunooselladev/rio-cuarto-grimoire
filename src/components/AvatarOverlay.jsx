@@ -48,10 +48,13 @@ const AvatarOverlay = () => {
     avatar.active?.isActive &&
     !avatar.active?.dismissed;
 
-  // Reset typing animation when a new invocation occurs
+  // Reset typing animation when a new invocation occurs.
+  // If there's no message, mark as done immediately so the dismiss button appears.
   useEffect(() => {
-    if (shouldShow) setTextDone(false);
-  }, [avatar?.active?.message]);
+    if (shouldShow) {
+      setTextDone(!avatar?.active?.message);
+    }
+  }, [avatar?.active?.message, shouldShow]);
 
   const handleDismiss = async () => {
     if (dismissing) return;
